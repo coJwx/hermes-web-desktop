@@ -1,0 +1,29 @@
+{
+  "applicationSha256": "7255D0461AA05F5FA03BE8AA778FF09B8A5B177B97FA36F09AB95D8B2808D5A4",
+  "checks": [
+    {
+      "exitCode": 0,
+      "check": "fresh-nested-unicode-path",
+      "result": "pass"
+    },
+    {
+      "exitCode": 0,
+      "check": "reinstall-preserves-profile",
+      "result": "pass"
+    },
+    {
+      "webviewChildren": 1,
+      "check": "installed-app-launch",
+      "windowTitle": "Hermes — 后端连接",
+      "result": "pass"
+    },
+    {
+      "exitCode": 0,
+      "check": "uninstall-preserves-profile",
+      "result": "pass"
+    }
+  ],
+  "destination": "D:\\Soft\\hermes-installer-e2e-6d420d1627ba45c18cac3bc1e17cc1b4\\中文 路径\\Hermes Dashboard",
+  "installerSha256": "3DFB9A42CD5EDCCBA7FA0172FB2D874E4DFD22F85B445A9BBD330A8AB22327B6",
+  "installer": "C:\\Users\\satellite\\Downloads\\Hermes-Dashboard-0.1.1-fixed\\Hermes-Dashboard-0.1.1-windows-x64-setup.exe"
+}

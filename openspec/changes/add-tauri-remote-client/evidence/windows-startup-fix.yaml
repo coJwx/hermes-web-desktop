@@ -1,0 +1,30 @@
+scope: tauri-startup-permissions
+date: 2026-10-02
+stage: apply
+risk: standard
+status: completed
+root_cause:
+  - "Tauri auto-created the configured WebView before application setup; default AppData mkdir failed with os error 5."
+  - "GUI subsystem hid the resulting runtime panic, making double-click appear to do nothing."
+changes:
+  - "Disable automatic window creation; choose and write-probe storage before creating either WebView."
+  - "Keep standard profile paths when writable; otherwise use exe-adjacent hermes-dashboard-data for WebView and connection settings."
+  - "Show native startup error messages when neither storage mode or WebView initialization can succeed."
+evidence:
+  - "Old release: captured startup-stderr.log, exit code 101, Failed to setup app: permission denied."
+  - "cargo test --locked: 4 passed, including two new real filesystem startup contracts."
+  - "Debug native launch stayed alive, saved the default remote URL and opened a Dashboard window."
+  - "Repaired release launch PID 39964: alive, native handle 920804, title Hermes — 后端连接（便携模式）, empty stderr."
+  - "Rebuilt exe and NSIS installer with locked Cargo dependencies."
+artifacts:
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\hermes-dashboard.exe"
+    bytes: 18050560
+    sha256: d21dc5a354cfff65ca638749ed0f7e936f74c4ff3a6659a0a578df57bb58b4be
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\bundle\\nsis\\Hermes Dashboard_0.1.0_x64-setup.exe"
+    bytes: 5228471
+    sha256: 90850ae0947865b63ec43f786c117cad1ba115df82ca0ea2590dfb4db9d3d089
+limitations:
+  - "Installer, account-authenticated remote workflows and chat have not been exercised."
+  - "Native DOM/screenshot inspection through a remote-debugging port was rejected by tool policy."
+invalidates_when:
+  - "Startup code, Tauri window configuration, filesystem permissions or embedded frontend changes."

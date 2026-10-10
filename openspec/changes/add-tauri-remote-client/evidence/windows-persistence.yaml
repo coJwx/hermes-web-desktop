@@ -1,0 +1,26 @@
+scope: desktop-restart-persistence
+date: 2026-10-02
+stage: apply
+risk: strict
+status: completed
+evidence:
+  - "All six Rust tests passed on Windows; real DPAPI, HTTP fixtures and filesystem state were used."
+  - "Fresh bridge/port/cookie provider/browser jar restored Codex theme, font and authentication from disk."
+  - "A-to-B-to-A isolation, expiry, explicit logout, late-response invalidation and wrong-backend DPAPI rejection passed."
+  - "Portable storage remains selected if standard directories later become writable."
+  - "50 Vitest files / 357 tests passed; ordinary browser storage and desktop save/priority behavior are covered."
+  - "Release exe built with locked dependencies and NSIS completed its intermediate installer."
+  - "Final default installer copy was blocked by running user installer PID 3076; the exact completed NSIS intermediate was copied to the distinct persistence-setup filename, without terminating that process."
+  - "Native release launch PID 4864 remained alive with connection-window title and nonzero handle; stderr was empty."
+artifacts:
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\hermes-dashboard.exe"
+    bytes: 18311168
+    sha256: a216c0308a4babed39b3fc61d16620cb140f472af28e7d8dd274b2ec83fc6400
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\bundle\\nsis\\Hermes Dashboard_0.1.0_x64-persistence-setup.exe"
+    bytes: 5299467
+    sha256: 4ce7933b86d6c2549f31a06044da9f2f66c0a7842f13690db0a1c57d136a7773
+limitations:
+  - "No actual remote account credentials were used; authenticated native GUI/OAuth remains user acceptance."
+  - "Old volatile cookies/random-origin theme choices cannot be recovered automatically; the first upgraded login/theme selection is required."
+invalidates_when:
+  - "Persistence, frontend preference adapter, bridge, dependency locks or protected backend URL changes."

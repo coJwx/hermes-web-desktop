@@ -1,0 +1,23 @@
+scope: locale-restoration-and-installer-write-check
+date: 2026-10-02
+stage: apply
+risk: standard
+status: completed
+evidence:
+  - "Six Rust tests passed; restart fixture now restores hermes-locale=zh with theme/font."
+  - "50 Vitest files / 357 tests passed; locale native save and browser behavior verified."
+  - "Compiled NSIS hook executed with a real denied-write file handle: exit 2, no installation marker."
+  - "Same hook after releasing the file handle: exit 0, installation marker created."
+  - "Latest release exe and NSIS output built. Final standard installer copy blocked by old user installer; new language-installfix artifact is byte-identical to completed NSIS intermediate."
+artifacts:
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\hermes-dashboard.exe"
+    bytes: 18316288
+    sha256: 75c0ac634930e7926626ec7168032ae81707d963affb780c09ce70e196565c9c
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\bundle\\nsis\\Hermes Dashboard_0.1.0_x64-language-installfix-setup.exe"
+    bytes: 5302268
+    sha256: d304e6132ae0c53c84bad33f88785e0daba6d658d70c4f5bfcfe453a9929d34b
+limitations:
+  - "No live installation into the user screenshot target; actual directory/ACL/security-software diagnosis is not confirmed."
+  - "Old preferences have no locale field; user must select Chinese once after upgrade."
+invalidates_when:
+  - "Preference protocol, i18n bootstrap, installer hook or locks change."

@@ -1,0 +1,20 @@
+scope: windows-dashboard-native-zoom
+stage: apply
+risk: standard
+status: partial
+date: 2026-10-09
+implementation:
+  - "Enable .zoom_hotkeys_enabled(true) only on the Windows dashboard-content WebviewBuilder."
+  - "Keep titlebar, connection form, other-platform window path and remote command permissions unchanged."
+  - "No new dependency, keyboard script injection or zoom-ratio persistence."
+evidence:
+  - "Installed Tauri 2.12.1/Wry 0.57.0 source maps this option to WebView2 IsZoomControlEnabled and IsPinchZoomEnabled; browser accelerator keys default enabled and are not overridden by the app."
+  - "pnpm build:exe -- --locked: frontend, native application and NSIS bundle succeeded."
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 11 existing regression tests passed. These do not exercise native zoom input."
+  - "Published with package-windows.ps1 to a fresh normal Downloads directory, not the Low-labeled build tree."
+limitations:
+  - "Actual native keyboard/mouse input (Ctrl-plus/minus/zero, Ctrl-wheel) was not automated or manually exercised in this run."
+  - "Saved zoom ratio across application restart or recreated bridge/WebView is not part of this change."
+  - "No personal user configuration or live remote account was modified."
+invalidates_when:
+  - "Dashboard content WebView construction or WebView2/accelerator configuration changes."

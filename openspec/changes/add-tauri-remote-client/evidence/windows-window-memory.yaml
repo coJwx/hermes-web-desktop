@@ -1,0 +1,21 @@
+scope: dashboard-maximized-mode-memory
+stage: apply
+risk: standard
+status: partial
+date: 2026-10-09
+implementation:
+  - "App-wide window.json is stored beside connection.json in the selected normal/portable data root; only maximized is saved."
+  - "Dashboard construction restores saved mode before showing; titlebar initial maximize/restore control is seeded from the same value."
+  - "Native resize/close and menu Quit capture actual state; hidden construction and minimized windows do not erase it."
+  - "Existing atomic_write is reused and in-memory state changes only after a successful write; unchanged modes do not write."
+evidence:
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 11 passed."
+  - "Two new real-filesystem contracts cover maximize then reopen, restore then reopen, unchanged connection data, minimized preservation, and failed-write cache consistency."
+  - "pnpm build:exe -- --locked: frontend/application/NSIS installer built."
+  - "desktop/package-windows.ps1 published fresh-byte protected output to normal Downloads."
+limitations:
+  - "Native UI maximize/restore and reopen with X/menu Quit were not exercised this turn; filesystem contracts are not native E2E proof."
+  - "Only maximized/normal mode is remembered, not ordinary window size/position."
+  - "User-owned data were not changed; old releases have no remembered mode, so choose the desired mode once after upgrading."
+invalidates_when:
+  - "Window-state store/native event capture/titlebar construction/exit paths change."

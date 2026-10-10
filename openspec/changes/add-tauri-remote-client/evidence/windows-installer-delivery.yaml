@@ -1,0 +1,33 @@
+scope: windows-installer-delivery-0.1.1
+stage: apply
+risk: strict
+status: completed
+date: 2026-10-02
+root_cause:
+  - "Workspace EXEs inherit NTFS Low integrity labels (confirmed with icacls)."
+  - "Minimal NSIS probe from workspace: Temp/Low and HKCU write failure. Identical bytes in a fresh normal Downloads file: normal Temp and successful HKCU write/delete."
+  - "The obsolete hook was already absent; rebuilding alone did not resolve inherited security metadata."
+fix:
+  - "Rebuild version 0.1.1 with locked dependencies and standard Tauri NSIS configuration."
+  - "Publish fresh byte streams to normal Downloads; distribute ZIP and checksums. No ACL, system security or user-profile changes."
+evidence:
+  - "pnpm build:exe -- --locked passed."
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 6 passed."
+  - "pnpm exec vitest run src/lib/desktop-preferences.test.ts: 2 passed."
+  - "Complete published installer: fresh nested Unicode/space target, payload hash, HKCU registration, reinstall preserving sentinel, installed connection window/WebView2 launch, and uninstall preserving sentinel passed in normal Temp."
+  - "Repeated full installer E2E under D:/Soft passed; see windows-installer-e2e.json."
+  - "Initial uninstall smoke raced WebView teardown; test now waits for its browser child before uninstall. No application changes for this race."
+  - "openspec validate add-tauri-remote-client --strict passed."
+artifacts:
+  installer: 'C:\Users\satellite\Downloads\Hermes-Dashboard-0.1.1-fixed\Hermes-Dashboard-0.1.1-windows-x64-setup.exe'
+  installer_sha256: 3dfb9a42cd5edccba7fa0172fb2d874e4dfd22f85b445a9bbd330a8ab22327b6
+  standalone_sha256: 7255d0461aa05f5fa03be8aa778ff09b8a5b177b97fa36f09ab95d8b2808d5a4
+  archive: 'C:\Users\satellite\Downloads\Hermes-Dashboard-0.1.1-fixed\Hermes-Dashboard-0.1.1-windows-x64.zip'
+limitations:
+  - "Interactive wizard and real remote login/chat not automated; installer ran silently, app startup checked via window title/WebView2 process."
+  - "WebView2 already present; runtime download on a clean machine not retested."
+  - "Unsigned artifacts may show publisher/reputation warnings."
+  - "Cleanup command was policy-blocked; isolated test files and preliminary artifacts remain. Test installation registry entries were removed by successful uninstall. Use only the fixed Downloads delivery."
+invalidates_when:
+  - "Application/configuration/embedded frontend or packaging changes."
+  - "EXEs moved into a Low-labeled location; extract ZIP into normal user storage."

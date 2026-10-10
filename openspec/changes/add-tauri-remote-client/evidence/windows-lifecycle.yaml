@@ -1,0 +1,23 @@
+scope: saved-backend-desktop-lifecycle
+stage: apply
+risk: standard
+status: partial
+date: 2026-10-09
+implementation:
+  - "Valid saved connection automatically enters the existing isolated dashboard/bridge path. First-run/corrupt configuration does not silently use a default backend."
+  - "Startup settings window is hidden until recovery is needed and its native menu is removed. Dashboard close and menu Quit exit; auxiliary settings close leaves an existing Dashboard intact."
+  - "Connection form shows the actual selected settings directory and asynchronous startup error; remote business data and local appearance/encrypted sessions are unchanged."
+evidence:
+  - "pnpm build:exe -- --locked: frontend, Rust executable and NSIS installer built successfully."
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 9 passed, including saved/missing/corrupt configuration and existing real HTTP/WebSocket/DPAPI restoration."
+  - "pnpm exec vitest run src/lib/desktop-connection.test.js src/lib/desktop-preferences.test.ts: 4 passed. Tests invoke the real connection form module with mocked native interfaces; do not inspect source text."
+  - "Isolated in-app browser preview verified the real connection form markup/script displays the selected address and local directory. Native invoke/listen were mocked."
+  - "Published with desktop/package-windows.ps1 as fresh byte streams outside the Low-labeled workspace."
+limitations:
+  - "The native lifecycle E2E harness creation/execution was policy-blocked; no alternate execution method was used to bypass that denial."
+  - "Actual native automatic launch, window-close exit, menu absence, and auxiliary-settings close remain manual acceptance."
+  - "No live user-account authentication or remote chat actions were performed."
+  - "User-owned configuration/session files were not modified or removed."
+invalidates_when:
+  - "Desktop native lifecycle or connection form changes."
+  - "Saved settings/storage/bridge contracts change."

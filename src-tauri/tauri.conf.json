@@ -1,0 +1,47 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Hermes Dashboard",
+  "version": "0.1.9",
+  "identifier": "space.hermes.dashboard",
+  "build": {
+    "beforeDevCommand": "pnpm build:desktop",
+    "beforeBuildCommand": "pnpm build:desktop",
+    "frontendDist": "../dist-desktop"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "connection",
+        "create": false,
+        "title": "Hermes — 后端连接",
+        "url": "desktop-connection.html",
+        "width": 640,
+        "height": 620,
+        "minWidth": 420,
+        "minHeight": 480
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost",
+      "capabilities": ["connection"]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.ico"],
+    "resources": { "icons/icon.ico": "icons/hermes-dashboard.ico" },
+    "shortDescription": "Hermes remote dashboard client",
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "template": "windows/installer.nsi",
+        "installerHooks": "windows/maintenance.nsh",
+        "languages": ["SimpChinese", "English"]
+      }
+    }
+  }
+}

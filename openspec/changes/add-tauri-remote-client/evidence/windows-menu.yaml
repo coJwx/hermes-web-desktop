@@ -1,0 +1,26 @@
+scope: grouped-desktop-menu-and-selected-icon
+stage: apply
+risk: strict
+status: partial
+date: 2026-10-09
+implementation:
+  - "One titlebar menu groups connection/view/settings/developer/help actions, with native menu-only dispatch and serialized rapid operations."
+  - "Independent desktop.json stores auto-connect, always-on-top, remember-zoom and ratio with compatible defaults; old connection/window/backend-session state is untouched."
+  - "Actual Windows ZoomFactor is read via the Tauri UI-thread controller and an asynchronous oneshot; snapshot on menu-open/reload/switch/normal quit."
+  - "Release DevTools capability is compiled for the existing Tauri dependency, opt-in only on Dashboard content and user-triggered with F12. No remote command permissions were added."
+  - "About metadata requires the bundled About window and exact local origin/path; JS renders metadata as text and refreshes on reopening. Explorer opens only the selected native profile directory."
+  - "User-selected bootstrap-installer ICO is independently copied into the web desktop project, embedded as desktop-icon.ico, and used for application/titlebar/NSIS installer/uninstaller. Browser favicon no longer overwrites it."
+evidence:
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 15 passed, including real-file preferences/failed-write/old-data preservation, local metadata origin guard, menu-ID uniqueness and monotonic zoom steps."
+  - "pnpm exec vitest run src/lib/desktop-about.test.js src/lib/desktop-connection.test.js src/lib/desktop-preferences.test.ts: 6 passed. Native interfaces are mocked for these UI binding tests."
+  - "Final pnpm build:exe -- --locked succeeded and produced the 0.1.7 executable and NSIS installer with release DevTools feature."
+  - "After full preparation/build, source bootstrap ICO, project ICO and embedded ICO have identical SHA256 92320b91d6290c158d8c64e231d5964dabbd2eab8d72102469b986d8792bf260. ICO contains16/32/64/128/256 frames."
+  - "Published using existing package-windows.ps1 into normal Downloads; versioned artifacts avoid the Low-labeled build directory."
+limitations:
+  - "Actual native menu clicks/accelerators, DevTools popup, Explorer/About windows and zoom restoration were not exercised by native UI automation in this run."
+  - "Native zoom persistence captures graceful lifecycle boundaries, not arbitrary external process termination."
+  - "No full-screen, window-coordinate/size storage, cache clearing, diagnostics upload or automatic DevTools opening was added."
+  - "No live account credentials or user-owned profile files were modified."
+invalidates_when:
+  - "Menu dispatch/Windows controller integration/preferences/trusted About guards change."
+  - "Icon asset or preparation/build configuration changes."

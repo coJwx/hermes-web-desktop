@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hermes — 后端连接</title>
+  <style>
+    @font-face{font-family:Collapse;src:url('/fonts/Collapse-Regular.woff2')}*{box-sizing:border-box}
+    :root{color-scheme:dark;font-family:Collapse,'Microsoft YaHei',sans-serif;background:#170d02;color:#fff}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;padding:32px 24px}
+    main{width:100%;max-width:470px}.brand{color:#ffac02;letter-spacing:.22em;font-size:13px;margin-bottom:28px}
+    h1{font-size:30px;line-height:1.2;margin:0 0 12px}p{color:#c5bcb0;font-size:14px;line-height:1.65}
+    form{margin-top:28px;padding-top:24px;border-top:1px solid #ffac0240}label{display:block;font-size:14px;margin-bottom:10px}
+    input{width:100%;min-height:48px;background:#21160b;border:1px solid #8f6b32;border-radius:6px;color:#fff;padding:12px;font-size:15px}
+    input:focus-visible,button:focus-visible{outline:2px solid #ffac02;outline-offset:3px}
+    .hint{font-size:12px;margin:10px 0 22px}button{width:100%;min-height:48px;border:1px solid #ffac02;border-radius:6px;background:#ffac02;color:#170d02;font-size:15px;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}#status{min-height:48px;margin-bottom:0;overflow-wrap:anywhere}#status[data-error=true]{color:#ffafa1}
+    footer{margin-top:24px;padding-top:18px;border-top:1px solid #ffffff15;color:#a99c8c;font-size:12px;line-height:1.7}
+    #data-directory{overflow-wrap:anywhere;user-select:text}
+    @media(max-width:440px){body{padding:24px 18px}h1{font-size:26px}}
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand">HERMES / DESKTOP</div>
+  <h1>连接你的 Hermes</h1>
+  <p>前端已内置在此应用中。填写远程后端地址，即可访问会话、配置与聊天；无需在本机启动 Python 服务。</p>
+  <form id="connection-form">
+    <label for="backend-url">远程后端地址</label>
+    <input id="backend-url" name="backendUrl" type="url" required autocomplete="url" spellcheck="false" placeholder="http://10.144.1.2:9119" aria-describedby="url-hint status" autofocus>
+    <p class="hint" id="url-hint">支持 HTTP / HTTPS 与路径前缀。地址保存在本机；公网连接请使用 HTTPS，HTTP 不加密账号和数据。</p>
+    <button id="connect" type="submit" disabled>保存并连接</button>
+    <p id="status" role="status" aria-live="polite">正在读取连接设置…</p>
+  </form>
+  <footer>可在「菜单 → 设置」中开启或关闭自动连接。连接失败时可在这里重试或修改地址。<br>切换后端不会删除原服务器的已保存登录会话。<br>本机配置目录：<span id="data-directory">正在读取…</span></footer>
+</main>
+<script src="desktop-connection.js" defer></script>
+</body>
+</html>

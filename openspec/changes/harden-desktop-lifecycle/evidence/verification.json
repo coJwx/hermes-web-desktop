@@ -1,0 +1,88 @@
+{
+  "date": "2026-10-09",
+  "stage": "apply",
+  "risk": "strict",
+  "status": "implemented-native-acceptance-pending",
+  "source_sha256": {
+    "src-tauri/Cargo.toml": "069a130aa525fb2a1e6cb971125a05de75963370c3385e84e66476b3143c6cbf",
+    "src-tauri/src/main.rs": "3c9a060f3e7444109cbc9b8ad50ec64e001c9d63ad98a604306ac6ac0e0eed42",
+    "src-tauri/src/bridge.rs": "9d8a7e648bdf13b61dfc73670f7f1ff742ceb8cb22e2d12f920ed487532e8f41",
+    "src-tauri/src/bridge/connection_tests.rs": "53c4cca180e2867635aac8d71bd62493ce501c7353ce64cf4f6e2429e3467029",
+    "src-tauri/src/bridge/transport_tests.rs": "1b15b09ac1b801e6994dfe8cb9878c00976e2fa518fbd49ee7b70962088d1bd3",
+    "src-tauri/src/dashboard_lifecycle.rs": "2008dcc2c2d65eca41879583520cd7c0e05321f2345310f80463c48a71ea82bd",
+    "src-tauri/src/diagnostics.rs": "0d4f9411b91d94c3e14ed97f3e6d035134bc1dbd72ed84a64fe619dad5157fd6",
+    "src-tauri/src/instance.rs": "3a6f34f490cef307cf02049579c782529c0a82732e9728b7661bcb83cf5dba3c",
+    "src-tauri/src/leave_gate.rs": "eca77de690058356ef23ddc1a9ea7d347c29826449497c2ebd5b78550e92763a",
+    "src-tauri/src/native_dialog.rs": "403d6c098256c5f86a9df69e12ed7c19e9632867b9afeab5a74a87587e968831",
+    "src-tauri/src/preference_recovery.rs": "7ae9d9af6c8d697774bafde310f99dc65494d01a32b87d6840106dcf92e25d30",
+    "src-tauri/src/trusted_ui.rs": "572d3e7ca4f6cddb89d449d60c72ab7181aa99465d5a3bba160df878f7525d07",
+    "src-tauri/src/persistence.rs": "8fd6370db3b96d2df8042858a55de3d86b5fd15ed54c2f61c8d195700fe5ef7e",
+    "src-tauri/src/settings.rs": "085e69d7736c28b8c1cba7237ff4ae928ad2af6f8501a8ac3ce2017cf4f6171a",
+    "src-tauri/src/desktop_menu.rs": "1561429ed326ff5251bbf6f965cb91dadf45af64c2f9fe4429ec9483327d644d",
+    "src-tauri/src/desktop_preferences.rs": "73bd9665392838099eb89d76eeb3162acd6588ac809106dfa11cf5aaa6aee634",
+    "src-tauri/src/window_state.rs": "391c2ab760a291723a7c16cb4a303a3089b09943f6ce889def7fa3a3891125b6",
+    "src-tauri/src/titlebar.rs": "84fba57090f966be27834d3404ffff972a8fe60cbb4fb9ca60bf867ead5f2f7f",
+    "src-tauri/src/about.rs": "2c15703b26bb01c745ea5ba701ef5a43649393cc23099415c746c672d1f9c38a",
+    "src/contexts/UnsavedChangesProvider.tsx": "9519cb66df9157af133e73b8d9daddf028c80b67be63b9365e45b53f67ca03cc",
+    "src/lib/desktop-leave.ts": "e185a32f6b21050a011cf2520fd80c2ad508e15a75b72a047ca3fc4e8e731584",
+    "src/lib/desktop-leave.test.ts": "ae395eb5da782bb12391bca2ed963ce040d857b7bc082edb59133a2306950404",
+    "src/pages/ConfigPage.test.tsx": "0572aafa3414b4c9dac9b323b75af8b7e0fba0a550636a20ace49287ac902df9"
+  },
+  "checks": [
+    {
+      "command": "cargo test --locked --offline --manifest-path src-tauri/Cargo.toml",
+      "result": "pass",
+      "tests": 29,
+      "environment": "Windows; isolated workspace target/tmp; real localhost HTTP/WebSocket/filesystem/DPAPI"
+    },
+    {
+      "command": "cargo clippy --locked --offline --manifest-path src-tauri/Cargo.toml --all-targets --no-deps -- -D warnings",
+      "result": "pass"
+    },
+    {
+      "command": "pnpm test",
+      "result": "pass",
+      "files": 55,
+      "tests": 370,
+      "note": "Existing jsdom Window.open not implemented notices remain"
+    },
+    {
+      "command": "pnpm exec tsc -b --pretty false",
+      "result": "pass"
+    },
+    {
+      "command": "pnpm build:desktop",
+      "result": "pass"
+    },
+    {
+      "command": "cargo build --locked --offline --manifest-path src-tauri/Cargo.toml",
+      "result": "pass",
+      "profile": "dev",
+      "note": "Not a published release artifact"
+    },
+    {
+      "command": "openspec validate harden-desktop-lifecycle --strict",
+      "result": "pass"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    },
+    {
+      "check": "Native Windows WebView2 interaction, installed application, OAuth, NSIS",
+      "result": "not-run",
+      "reason": "Native app control disabled in this tool session; no user configuration or installation accessed",
+      "manual_steps": "blackbox-test.md"
+    }
+  ],
+  "limitations": [
+    "Window create/destroy rollback ordering is contract-tested and compiled, not exercised through real native window interaction.",
+    "Authentication redirects remain compatible; target identity is only verifiable after authentication.",
+    "No version bump, signed release, installer rebuild, publish, commit or user-state migration."
+  ],
+  "invalidates_when": [
+    "Any listed source hash changes",
+    "Bundled frontend rebuilt from different sources or Cargo.lock changes",
+    "Native acceptance must be rerun for WebView2/OS deployment changes"
+  ]
+}

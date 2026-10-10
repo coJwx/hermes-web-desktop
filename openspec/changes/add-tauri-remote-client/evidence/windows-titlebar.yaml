@@ -1,0 +1,24 @@
+scope: windows-titlebar-connection-menu
+stage: apply
+risk: strict
+status: partial
+date: 2026-10-09
+implementation:
+  - "Windows dashboard has a separate trusted local 36px titlebar WebView and unprivileged remote content WebView."
+  - "Connection menu follows the backend title in one row; native submenu/actions are reused."
+  - "Titlebar commands require its specific WebView label and local URL; connection configuration remains separately guarded."
+  - "Window lifecycle uses get_window for the multi-WebView dashboard; reload targets dashboard-content."
+evidence:
+  - "pnpm build:exe -- --locked: frontend, Rust application and NSIS installer built."
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 8 passed, including 2 new titlebar contracts."
+  - "In-app browser preview of actual bundled titlebar HTML/JS: host and connection appear adjacent; window buttons remain right-aligned; maximize mock updates accessible name to restore."
+  - "Preview screenshot: src-tauri/target/titlebar-preview.png (browser preview, not a running native window)."
+  - "openspec validate add-tauri-remote-client --strict: passed."
+artifact:
+  path: 'C:\Users\satellite\Downloads\Hermes-Dashboard-0.1.2-titlebar\Hermes-Dashboard-0.1.2-windows-x64-setup.exe'
+  sha256: 98109cac91414befb4e4bab61fec88107469044ba51a866fa2c3ef5bab953ca3
+limitations:
+  - "Native application launch commands were policy-blocked; no workaround was attempted via a test runner."
+  - "Actual WebView creation, native popup/accelerators, drag, minimize/maximize, DPI changes, reconnect and installer execution need user/native acceptance."
+  - "Browser preview used mocked native invoke results and is not native E2E evidence."
+  - "Existing user app/configuration/data were not modified."

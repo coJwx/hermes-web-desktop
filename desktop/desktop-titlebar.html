@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hermes — 标题栏</title>
+  <style>
+    :root { color-scheme: light dark; font: 12px "Segoe UI", "Microsoft YaHei", sans-serif; color: #202020; background: #f0f4f9; }
+    * { box-sizing: border-box; }
+    body { margin: 0; height: 30px; overflow: hidden; user-select: none; }
+    header { display: flex; align-items: center; height: 30px; padding-left: 10px; border-bottom: 1px solid #0000000b; }
+    .identity { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .identity img { width: 16px; height: 16px; pointer-events: none; }
+    #window-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    button { flex: none; height: 30px; border: 0; color: inherit; background: transparent; font: inherit; padding: 0; }
+    button:hover { background: #0000000d; }
+    button:active { background: #00000016; }
+    button:focus-visible { outline: 2px solid #2563eb; outline-offset: -3px; }
+    #connection-menu { display: flex; align-items: center; gap: 6px; height: 24px; margin-left: 12px; padding: 0 9px; border-radius: 4px; }
+    .spacer { flex: 1; align-self: stretch; min-width: 20px; }
+    .controls { display: flex; align-self: stretch; }
+    .controls button { width: 46px; display: grid; place-items: center; }
+    svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1; pointer-events: none; }
+    #close:hover { color: white; background: #c42b1c; }
+    #close:active { background: #a32115; }
+    #restore-icon { display: none; }
+    [data-maximized="true"] #restore-icon { display: block; }
+    [data-maximized="true"] #maximize-icon { display: none; }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #f0f0f0; background: #202020; }
+      header { border-bottom-color: #ffffff12; }
+      button:hover { background: #ffffff14; }
+      button:active { background: #ffffff20; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="identity" data-drag><img src="/desktop-icon.ico" alt="" /><span id="window-title" data-drag>Hermes Dashboard</span></div>
+    <button id="connection-menu" aria-haspopup="menu" title="应用菜单">菜单<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg></button>
+    <div class="spacer" data-drag></div>
+    <div class="controls" aria-label="窗口控制">
+      <button id="minimize" aria-label="最小化" title="最小化"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6h10" /></svg></button>
+      <button id="maximize" aria-label="最大化" title="最大化"><svg id="maximize-icon" viewBox="0 0 12 12" aria-hidden="true"><rect x="1.5" y="1.5" width="9" height="9" /></svg><svg id="restore-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="M4 3V1.5h6.5V8H9"/><rect x="1.5" y="4" width="6.5" height="6.5" /></svg></button>
+      <button id="close" aria-label="关闭窗口" title="关闭窗口"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="m1.5 1.5 9 9m0-9-9 9" /></svg></button>
+    </div>
+  </header>
+  <script src="desktop-titlebar.js"></script>
+</body>
+</html>

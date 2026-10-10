@@ -1,0 +1,7 @@
+{
+  "installer": "C:\\Users\\satellite\\Downloads\\Hermes-Dashboard-0.1.7-menu-hdicon\\Hermes-Dashboard-0.1.7-windows-x64-setup.exe",
+  "sha256": "701de59e8e8854cddf02f3c754c5a947c7c95057b653e5d4c999f7089542e811",
+  "iconSha256": "92320b91d6290c158d8c64e231d5964dabbd2eab8d72102469b986d8792bf260",
+  "applicationSha256": "2307a8d3305674b45809a3e1339e764aec37e92bd2cd20f4a1db37fbda3b9375",
+  "iconSource": "D:\\OpenSourceAI\\hermes-agent\\apps\\bootstrap-installer\\src-tauri\\icons\\icon.ico"
+}

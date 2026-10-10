@@ -1,0 +1,15 @@
+scope: installer-directory-check
+stage: apply
+risk: standard
+status: completed
+date: 2026-10-02
+evidence:
+  - "Existing locked target: exit 2 and no extraction marker; unlocked target: exit 0."
+  - "Missing nested installation directory was created automatically; installer exit 0 and marker exists."
+  - "Repeated directory-only probes passed without fixed-name collisions."
+  - "Tauri NSIS re-bundling succeeded without changing the already-built app executable."
+limitations:
+  - "The screenshot's exact environment was not reproduced; error 80 may be a stale error or a leftover fixed-name probe. Both are removed from the hook."
+artifact:
+  path: D:\OpenSourceAI\hermes-agent\web\src-tauri\target\release\bundle\nsis\Hermes Dashboard_0.1.0_x64-directoryfix-setup.exe
+  sha256: 8f012da83f311ccd027a5b05f9711f2c426d458c15673359ba4611c3c2ae77fb

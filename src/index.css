@@ -1,0 +1,702 @@
+@import 'tailwindcss';
+/* `fonts.css` must come BEFORE `globals.css`: as of @nous-research/ui 0.14.x,
+   `globals.css` only declares the `--font-*` CSS variables (Collapse, Rules
+   Compressed/Expanded, Mondwest). The `@font-face` registrations live in
+   `fonts.css`, so without this import the DS variables resolve to font
+   families the browser never loads and components fall back to a system
+   stack (Tabs, Segmented, Typography, Buttons, etc. all look unstyled). */
+@import '@nous-research/ui/styles/fonts.css';
+@import '@nous-research/ui/styles/globals.css';
+
+/* Scan the published design-system bundle so its utility classes survive
+   Tailwind's JIT purge. */
+@source '../node_modules/@nous-research/ui/dist';
+
+/* ------------------------------------------------------------------ */
+/* JetBrains Mono — bundled for the embedded TUI (/chat tab).          */
+/* Gives the terminal a proper monospace font even on systems where    */
+/* the user doesn't have one installed locally; xterm.js picks it up   */
+/* via ChatPage's `fontFamily` option.                                 */
+/* Apache-2.0.                                                         */
+/* ------------------------------------------------------------------ */
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts-terminal/JetBrainsMono-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts-terminal/JetBrainsMono-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts-terminal/JetBrainsMono-Italic.woff2') format('woff2');
+}
+
+/* ------------------------------------------------------------------ */
+/* Hermes Agent — Nous DS with the LENS_0 (Hermes teal) palette applied
+   statically as the default dashboard theme. */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* LENS_0 — from design-language/src/ui/components/overlays/index.tsx.
+     These are the defaults for the `default` (Hermes Teal) dashboard theme;
+     ThemeProvider rewrites them as inline styles when a user switches themes. */
+  --foreground: color-mix(in srgb, #ffffff 0%, transparent);
+  --foreground-base: #ffffff;
+  --foreground-alpha: 0;
+  --midground: color-mix(in srgb, #ffe6cb 100%, transparent);
+  --midground-base: #ffe6cb;
+  --midground-alpha: 1;
+  --background: color-mix(in srgb, #041c1c 100%, transparent);
+  --background-base: #041c1c;
+  --background-alpha: 1;
+
+  /* Typography tokens — rewritten by ThemeProvider. Defaults match the
+     system stack so themes that don't override look native. */
+  --theme-font-sans: system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --theme-font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo,
+    Consolas, monospace;
+  --theme-font-display: var(--theme-font-sans);
+  --theme-base-size: 15px;
+  --theme-line-height: 1.55;
+  --theme-letter-spacing: 0;
+
+  /* Layout tokens. */
+  --radius: 0.5rem;
+  --theme-radius: 0.5rem;
+  --theme-spacing-mul: 1;
+  --theme-density: comfortable;
+
+  /* Data-series accents — consumed by Analytics + Models pages for the
+     input-vs-output token visualisations (chart bars, table values,
+     legend swatches). Defaults are tuned for the Hermes-teal LENS_0
+     look: cream input + emerald-400 output read as warm/cool against
+     the dark canvas. Themes override via ThemeProvider, which emits
+     these as `--series-input-token` / `--series-output-token`. */
+  --series-input-token: #ffe6cb;
+  --series-output-token: #34d399;
+}
+
+/* Theme tokens cascade into the document root so every descendant inherits
+   the font stack, base size, and letter spacing without explicit calls. */
+html {
+  font-family: var(--theme-font-sans);
+  font-size: var(--theme-base-size);
+  line-height: var(--theme-line-height);
+  letter-spacing: var(--theme-letter-spacing);
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--theme-font-sans);
+  min-height: 0;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+code,
+kbd,
+pre,
+samp,
+.font-mono,
+.font-mono-ui {
+  font-family: var(--theme-font-mono);
+}
+
+/* Density: scale the shadcn spacing utilities via a multiplier. The DS
+   components use `p-N` / `gap-N` / `space-*` classes which resolve against
+   Tailwind's spacing scale; multiplying `--spacing` at :root scales them
+   all proportionally in Tailwind v4. */
+@theme inline {
+  --spacing: calc(0.25rem * var(--theme-spacing-mul, 1));
+  --font-sans: var(--theme-font-sans);
+  --font-mono: var(--theme-font-mono);
+}
+
+#root {
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+
+  html,
+  body,
+  #root {
+    min-height: 100dvh;
+    height: auto;
+    max-height: none;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
+/* Nousnet's hermes-agent layout bumps `small` and `code` to readable
+   dashboard sizes. Keep in sync. */
+small {
+  font-size: 1.0625rem;
+}
+
+code {
+  font-size: 0.875rem;
+}
+
+/* Shadcn-compat tokens.
+   The dashboard's page code predates the Nous DS and uses shadcn-style
+   utility classes (bg-card, text-muted-foreground, border-border, etc.)
+   extensively. Rather than rewrite every call site, we expose those
+   tokens on top of the Nous palette so classes continue to resolve. */
+@theme inline {
+  /* Remap foreground to midground so `text-foreground` / `bg-foreground`
+     stay visible — in LENS_0, `--foreground` itself has alpha 0. */
+  --color-foreground: var(--midground);
+
+  --color-card: color-mix(in srgb, var(--midground-base) 4%, var(--background-base));
+  --color-card-foreground: var(--midground);
+  --color-primary: var(--midground);
+  --color-primary-foreground: var(--background-base);
+  --color-secondary: color-mix(in srgb, var(--midground-base) 6%, var(--background-base));
+  --color-secondary-foreground: var(--midground);
+  --color-muted: color-mix(in srgb, var(--midground-base) 8%, var(--background-base));
+  /* Routes the shadcn `muted-foreground` slot through the DS semantic
+     text-secondary token (defaults to midground 80%) so legacy call
+     sites that use `text-muted-foreground` get a readable color
+     instead of the old 55%-transparent default. */
+  --color-muted-foreground: var(--color-text-secondary);
+  --color-accent: color-mix(in srgb, var(--midground-base) 10%, var(--background-base));
+  --color-accent-foreground: var(--midground);
+  --color-destructive: #fb2c36;
+  --color-destructive-foreground: #ffffff;
+  --color-success: #4ade80;
+  --color-warning: #ffbd38;
+  --color-border: color-mix(in srgb, var(--midground-base) 15%, transparent);
+  --color-input: color-mix(in srgb, var(--midground-base) 15%, transparent);
+  --color-ring: var(--midground);
+  --color-popover: color-mix(in srgb, var(--midground-base) 4%, var(--background-base));
+  --color-popover-foreground: var(--midground);
+
+  --radius-sm: calc(var(--theme-radius) - 4px);
+  --radius-md: calc(var(--theme-radius) - 2px);
+  --radius-lg: var(--theme-radius);
+  --radius-xl: calc(var(--theme-radius) + 4px);
+}
+
+
+/* Collapsed sidebar tooltip entrance — skipped when moving between items. */
+@keyframes sidebar-tooltip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) translateX(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+  }
+}
+
+/* Toast animations used by `components/Toast.tsx`. */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+/* Generic fade + dialog entrance used by popovers and confirm dialogs. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Hide scrollbar utility — used by the header's overflow-x nav row. */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* ------------------------------------------------------------------ */
+/* xterm.js 自定义模拟滚动条 (vs/base/browser/ui/scrollbar) 深度美化   */
+/* 对应 DOM 节点: div.visible.scrollbar.vertical > div.slider         */
+/* ------------------------------------------------------------------ */
+
+.xterm .xterm-scrollable-element>.scrollbar.vertical {
+  width: 7px !important;
+  right: 3px !important;
+  background: transparent !important;
+}
+
+.xterm .xterm-scrollable-element>.scrollbar.horizontal {
+  height: 7px !important;
+  bottom: 3px !important;
+  background: transparent !important;
+}
+
+.xterm .xterm-scrollable-element>.scrollbar.vertical>.slider {
+  width: 7px !important;
+  left: 0 !important;
+  border-radius: 9999px !important;
+  background: rgba(140, 160, 180, 0.28) !important;
+  transition: background-color 0.15s ease, opacity 0.15s ease !important;
+}
+
+.xterm .xterm-scrollable-element>.scrollbar.vertical>.slider:hover {
+  background: rgba(140, 160, 180, 0.55) !important;
+}
+
+.xterm .xterm-scrollable-element>.scrollbar.vertical>.slider.active {
+  background: rgba(140, 160, 180, 0.75) !important;
+}
+
+/* 隐藏 xterm 滚动边缘生硬的内阴影 */
+.xterm .xterm-scrollable-element>.shadow {
+  display: none !important;
+}
+
+/* ------------------------------------------------------------------ */
+/* 全局原生滚动条优化 (包含侧边栏、历史记录、全站通用容器)              */
+/* ------------------------------------------------------------------ */
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--midground, #888888) 22%, transparent);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+*:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--midground, #888888) 38%, transparent);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--midground, #888888) 60%, transparent);
+}
+
+/* System UI-monospace stack — distinct from `font-courier` (Courier
+   Prime), used for dense data readouts where the display font would
+   break the grid. Routes through the theme's mono stack so themes
+   with a different monospace (JetBrains Mono, IBM Plex Mono, etc.)
+   still apply here. */
+.font-mono-ui {
+  font-family: var(--theme-font-mono);
+}
+
+/* Subtle grain overlay for badges. */
+.grain {
+  position: relative;
+}
+
+.grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  pointer-events: none;
+  background: repeating-conic-gradient(currentColor 0% 25%, #0000 0% 50%) 0 0 / 2px 2px;
+}
+
+/* Custom unified border radius */
+:root {
+  --custom-border-radius: 8px;
+}
+
+.custom-border-radius {
+  border-radius: var(--custom-border-radius, 8px) !important;
+}
+
+/* 统一所有按钮、Badge标签、输入框、下拉框、对话框等元素为 8px 圆角 */
+button:not([role="switch"]):not([role="radio"]):not([data-active]):not([class*="rounded-full"]):not([class*="rounded-none"]),
+input:not([type="checkbox"]):not([type="radio"]):not([class*="rounded-full"]):not([class*="rounded-none"]),
+textarea:not([class*="rounded-none"]),
+select:not([class*="rounded-none"]),
+[data-slot="dialog-content"],
+div[role="dialog"]>div {
+  border-radius: var(--custom-border-radius, 8px) !important;
+}
+
+/* Switch 开关组件美化：胶囊圆角与滑块圆形 */
+button[role="switch"] {
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+  border: 1px solid var(--color-border, color-mix(in srgb, var(--midground-base) 20%, transparent)) !important;
+}
+
+button[role="switch"]>span {
+  border-radius: 9999px !important;
+  box-shadow: none !important;
+}
+
+/* Button 纯粹使用干净 border，彻底禁用所有 box-shadow 与 arc-border */
+button,
+button.group,
+button[class*="shadow"] {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+  --tw-shadow: 0 0 #0000 !important;
+  --tw-shadow-colored: 0 0 #0000 !important;
+  --tw-inset-shadow: 0 0 #0000 !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* 覆盖 Tailwind 类中直接注入的内阴影选择器 */
+[class*="shadow-[inset_"] {
+  box-shadow: none !important;
+  -webkit-box-shadow: none !important;
+}
+
+/* 非 ghost 按钮统一使用纯 border 样式 */
+button:not([role="switch"]):not([role="radio"]):not([data-active]):not([class*="bg-transparent"]):not([class*="hover:bg-midground/10"]):not([class*="ghost"]) {
+  border: 1px solid var(--color-border, color-mix(in srgb, var(--midground-base) 25%, transparent)) !important;
+}
+
+/* 带有 outlined 的按钮使用清晰可见的统一 1px 细线 border */
+button:not([role="switch"]):not([role="radio"]):not([data-active])[class*="shadow-midground"],
+button:not([role="switch"]):not([role="radio"]):not([data-active])[class*="outlined"] {
+  border: 1px solid var(--midground, currentColor) !important;
+  background-color: transparent !important;
+}
+
+/* hover 时的 border 交互反馈 */
+button:not([role="switch"]):not([role="radio"]):not([data-active]):not(:disabled):hover {
+  border-color: var(--midground, currentColor) !important;
+}
+
+/* ================================================================== */
+/*  Radio Group / Segmented Control 现代化平滑胶囊切换                */
+/* ================================================================== */
+div[role="radiogroup"] {
+  border-radius: var(--custom-border-radius, 8px) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 6%, transparent) !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 14%, transparent) !important;
+  padding: 3px !important;
+  gap: 2px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  box-shadow: none !important;
+}
+
+div[role="radiogroup"] button[role="radio"] {
+  border-radius: calc(var(--custom-border-radius, 8px) - 2px) !important;
+  border: none !important;
+  font-family: inherit !important;
+  font-size: 0.75rem !important;
+  letter-spacing: normal !important;
+  font-weight: 500 !important;
+  padding: 0.25rem 0.625rem !important;
+  height: 1.75rem !important;
+  line-height: 1 !important;
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+  cursor: pointer !important;
+  box-shadow: none !important;
+  white-space: nowrap !important;
+  outline: none !important;
+}
+
+div[role="radiogroup"] button[role="radio"][aria-checked="true"] {
+  background-color: var(--color-background, var(--background-base, #ffffff)) !important;
+  color: var(--midground, #0f172a) !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 18%, transparent) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+
+div[role="radiogroup"] button[role="radio"][aria-checked="false"] {
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  color: var(--text-secondary, rgba(0, 0, 0, 0.6)) !important;
+}
+
+div[role="radiogroup"] button[role="radio"][aria-checked="false"]:hover {
+  color: var(--midground, #0f172a) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 8%, transparent) !important;
+}
+
+div[role="radiogroup"] button[role="radio"]:focus-visible {
+  ring: 1px solid color-mix(in srgb, var(--midground-base) 30%, transparent) !important;
+}
+
+/* ================================================================== */
+/*  Select & Dropdown 下拉菜单与选项样式优化                          */
+/* ================================================================== */
+button[aria-haspopup="listbox"],
+[data-slot="select-trigger"] {
+  font-family: inherit !important;
+  border-radius: var(--custom-border-radius, 8px) !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 18%, transparent) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 3%, transparent) !important;
+  transition: all 120ms ease !important;
+  font-size: 0.8125rem !important;
+  letter-spacing: normal !important;
+}
+
+button[aria-haspopup="listbox"]:hover,
+[data-slot="select-trigger"]:hover {
+  border-color: color-mix(in srgb, var(--midground-base) 35%, transparent) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 6%, transparent) !important;
+}
+
+div[role="listbox"] {
+  border-radius: var(--custom-border-radius, 8px) !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 15%, transparent) !important;
+  background-color: var(--background-base, #ffffff) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  padding: 4px !important;
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+}
+
+div[role="listbox"] [role="option"],
+div[role="listbox"] button {
+  border: none !important;
+  border-radius: calc(var(--custom-border-radius, 8px) - 2px) !important;
+  padding: 6px 10px !important;
+  font-size: 0.8125rem !important;
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+  transition: background-color 100ms ease, color 100ms ease !important;
+  cursor: pointer !important;
+  background-color: transparent !important;
+}
+
+div[role="listbox"] [role="option"]:hover,
+div[role="listbox"] [role="option"][data-highlighted="true"],
+div[role="listbox"] button:hover {
+  background-color: color-mix(in srgb, var(--midground-base) 8%, transparent) !important;
+  color: var(--midground, currentColor) !important;
+}
+
+div[role="listbox"] [role="option"][aria-selected="true"] {
+  font-weight: 500 !important;
+  color: var(--midground, currentColor) !important;
+}
+
+/* ================================================================== */
+/*  Dialog & Modal 统一弹窗体系美化                                    */
+/* ================================================================== */
+[data-slot="dialog-content"],
+div[role="dialog"] > div[class*="shadow"],
+div[role="dialog"] > div.themed-body {
+  border-radius: 12px !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 18%, transparent) !important;
+  background-color: var(--color-card, var(--background-base, #ffffff)) !important;
+  color: var(--color-foreground, var(--text-primary, #0f172a)) !important;
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  overflow: hidden !important;
+}
+
+[data-slot="dialog-header"],
+div[role="dialog"] header,
+div[role="dialog"] > div > div:first-child:has(h2) {
+  padding: 1.25rem 1.5rem !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--midground-base) 12%, transparent) !important;
+  background-color: transparent !important;
+}
+
+[data-slot="dialog-title"],
+div[role="dialog"] h2 {
+  color: var(--color-foreground, var(--text-primary, currentColor)) !important;
+  font-family: inherit !important;
+  font-size: 1.0625rem !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.015em !important;
+  text-transform: none !important;
+}
+
+[data-slot="dialog-description"],
+div[role="dialog"] header p,
+div[role="dialog"] [data-slot="dialog-header"] p,
+div[role="dialog"] p.text-muted-foreground {
+  color: var(--color-muted-foreground, var(--text-tertiary, #64748b)) !important;
+  font-family: inherit !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.5 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  margin-top: 0.25rem !important;
+}
+
+[data-slot="dialog-footer"],
+div[role="dialog"] footer,
+div[role="dialog"] > div > div:last-child:has(button) {
+  padding: 0.875rem 1.5rem !important;
+  border-top: 1px solid color-mix(in srgb, var(--midground-base) 12%, transparent) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 3%, transparent) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 0.625rem !important;
+}
+
+/* 统一弹窗内底栏与操作按钮尺寸与排版 */
+[data-slot="dialog-footer"] button,
+div[role="dialog"] footer button {
+  height: 2rem !important;
+  font-size: 0.8125rem !important;
+  font-family: inherit !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  padding: 0 0.875rem !important;
+  border-radius: var(--custom-border-radius, 8px) !important;
+}
+
+/* 弹窗右上角关闭按钮 */
+[data-slot="dialog-close"],
+div[role="dialog"] button[aria-label="Close"] {
+  border: none !important;
+  background: transparent !important;
+  color: var(--color-muted-foreground, #64748b) !important;
+  border-radius: 6px !important;
+  padding: 4px !important;
+  height: 1.75rem !important;
+  width: 1.75rem !important;
+  top: 1rem !important;
+  right: 1rem !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 120ms ease !important;
+}
+
+[data-slot="dialog-close"]:hover,
+div[role="dialog"] button[aria-label="Close"]:hover {
+  background-color: color-mix(in srgb, var(--midground-base) 10%, transparent) !important;
+  color: var(--color-foreground, currentColor) !important;
+}
+
+/* 弹窗内的输入框与文本域内边距及字体优化 */
+[data-slot="dialog-content"] input,
+div[role="dialog"] input {
+  font-family: inherit !important;
+  font-size: 0.8125rem !important;
+  height: 2.25rem !important;
+  padding: 0 0.75rem !important;
+  border-radius: var(--custom-border-radius, 8px) !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 18%, transparent) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 2%, transparent) !important;
+}
+
+[data-slot="dialog-content"] textarea,
+div[role="dialog"] textarea {
+  border-radius: var(--custom-border-radius, 8px) !important;
+  border: 1px solid color-mix(in srgb, var(--midground-base) 18%, transparent) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 2%, transparent) !important;
+  padding: 0.625rem 0.75rem !important;
+  font-size: 0.8125rem !important;
+}
+
+/* 列表项（如模型选择器内各行）去除多余的卡片式厚重外框 */
+div[role="dialog"] button[data-active],
+[data-slot="dialog-content"] button[data-active] {
+  border-radius: 6px !important;
+  border: none !important;
+  border-left: 2px solid transparent !important;
+  margin: 1px 4px !important;
+  width: calc(100% - 8px) !important;
+  height: auto !important;
+  padding: 0.5rem 0.75rem !important;
+  font-family: inherit !important;
+  letter-spacing: normal !important;
+}
+
+div[role="dialog"] button[data-active="true"],
+[data-slot="dialog-content"] button[data-active="true"] {
+  border-left-color: var(--color-primary, var(--midground, currentColor)) !important;
+  background-color: color-mix(in srgb, var(--midground-base) 12%, transparent) !important;
+}
+
+/* 彻底清除并隐藏任何子元素带来的额外高亮或伪边框（如 arc-border、内部叠加层） */
+button>.arc-border,
+button::before,
+button::after {
+  display: none !important;
+  content: none !important;
+  box-shadow: none !important;
+}
+
+/* Badge 标签、筛选胶囊、以及操作栏的按钮统一圆角 */
+span[class*="font-compressed"],
+span[class*="tracking-[0.2em]"],
+span[class*="bg-primary/15"],
+span[class*="bg-purple-500/10"],
+[data-use-as-menu]>button,
+[data-use-as-menu]>div {
+  border-radius: var(--custom-border-radius, 8px) !important;
+}
+
+/* Card 及所有卡片容器统一圆角 */
+div[class*="border-midground/15"][class*="bg-background-base"],
+div[class*="border"][class*="bg-card"],
+div[class*="bg-muted/20"][class*="border"],
+[data-slot="card"],
+.card {
+  border-radius: var(--custom-border-radius, 8px) !important;
+}
+
+/* RTL support — Arabic and any future right-to-left locale. The i18n provider
+   sets `dir` on <html>; Tailwind v4's logical spacing utilities (ms-/me-,
+   ps-/pe-) and logical properties then flip automatically. Scoped so the
+   default LTR layout is untouched. */
+html[dir="rtl"] {
+  direction: rtl;
+}

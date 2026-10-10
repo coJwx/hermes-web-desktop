@@ -1,0 +1,20 @@
+scope: desktop-icon-intermediate-sizes-and-shortcut-location
+stage: apply
+risk: standard
+status: partial
+date: 2026-10-09
+evidence:
+  - "Existing desktop shortcut targets D:/Soft/Hermes Dashboard/hermes-dashboard.exe; installed version0.1.7 and PE group resources match the intended5-frame icon."
+  - "Read-only Shell queries produced48px and256px images;48px loses details. Cached installed path and fresh copied path render identically in both image lists; old cache alone is not proven."
+  - "15-frame ICO generated from user-selected bootstrap1024px master; project and embedded ICO hashes match."
+  - "Final exe and NSIS setup PE icon groups contain16/20/24/28/32/40/48/60/64/72/84/96/128/192/256."
+  - "desktop/test-shortcut-icon.ps1 compiled and executed the production NSIS icon-field macro against a temporary real shortcut. IconLocation readback correct, target/arguments/description/workdir unchanged; missing link rejected. See windows-shortcut-icon-test.json."
+  - "desktop/test-maintenance.ps1: six compiled existing upgrade-policy choices passed."
+  - "pnpm build:exe -- --locked succeeded with external bundled ICO and same15-frame application/setup resources."
+  - "Published with package-windows.ps1 into normal Downloads. No user-owned shortcut, program/profile or system icon cache was changed by diagnostics."
+limitations:
+  - "Actual installed desktop icon refresh and appearance under the user's display scaling remain manual acceptance."
+  - "Complex portrait detail is inherently less legible at small sizes than simplified geometric branding; no new logo redesign was attempted."
+  - "NativeUI menu behavior of0.1.7 remains subject to its earlier acceptance limitations."
+invalidates_when:
+  - "Master image/generated ICO/build/shortcut macro changes."

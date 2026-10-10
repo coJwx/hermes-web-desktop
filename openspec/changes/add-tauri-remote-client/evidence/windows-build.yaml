@@ -1,0 +1,28 @@
+scope: tauri-remote-client
+date: 2026-10-02
+stage: apply
+risk: strict
+status: partial
+evidence:
+  - "pnpm test: 49 files / 355 tests passed"
+  - "cargo test --locked --manifest-path src-tauri/Cargo.toml: 2 real HTTP/WebSocket contract tests passed"
+  - "pnpm build:exe -- --locked: release exe and NSIS installer built successfully"
+  - "cargo fmt --check and desktop JS node --check passed"
+  - "openspec validate add-tauri-remote-client --strict passed"
+artifacts:
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\hermes-dashboard.exe"
+    bytes: 18036224
+    sha256: d13a33532781043718dc2c04d026a67560a4420e759f8311e4cc15d673d336cf
+  - path: "D:\\OpenSourceAI\\hermes-agent\\web\\src-tauri\\target\\release\\bundle\\nsis\\Hermes Dashboard_0.1.0_x64-setup.exe"
+    bytes: 5227258
+    sha256: 8c800f13b00a06c46860bb5680eb6115d3cc7cc3b60de52ebf963c2174a5e89b
+limitations:
+  - "GUI launch command was rejected by execution policy; native UI, installer and real login/chat require user acceptance."
+  - "Third-party OAuth callbacks and WebView restrictions remain deployment-specific and unverified."
+  - "Existing ESLint setup cannot initialize: @eslint/js is missing; no unrelated dependency repair was made."
+  - "Native tools require a workspace TEMP directory in this environment; clang-cl was used for C dependencies."
+  - "Harmless filesystem diagnostic directories outside the workspace were created; the attempted cleanup command was blocked by policy."
+invalidates_when:
+  - "Desktop source, embedded frontend, Cargo/pnpm lockfiles or Tauri configuration changes."
+  - "Remote Hermes authentication/API contracts change."
+superseded_by: windows-startup-fix.yaml
