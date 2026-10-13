@@ -74,6 +74,11 @@ export const zh: Translations = {
       stopped: "已停止",
     },
     nav: {
+      files: "文件",
+      channels: "消息渠道",
+      webhooks: "Webhooks",
+      pairing: "配对",
+      system: "系统",
       analytics: "分析",
       chat: "对话",
       config: "配置",
@@ -252,6 +257,130 @@ export const zh: Translations = {
   },
 
   models: {
+    ui: {
+      switchModel: "切换模型",
+      unknown: "（未知）",
+      filterModels: "筛选服务商和模型…",
+      saveGlobalHint: "保存到 config.yaml，对新会话生效。",
+      persistGlobal: "保存为全局设置（否则仅对当前会话生效）",
+      refreshModels: "刷新模型列表",
+      switch: "切换",
+      noProvidersMatch: "没有符合搜索条件的服务商。",
+      noProviders: "尚未配置模型服务商。请在“密钥”页面添加 API 密钥，或在“模型”页面登录服务商，以查看可用模型。",
+      openKeys: "打开密钥设置",
+      signInProvider: "登录服务商",
+      pickProvider: "请选择服务商 →",
+      noModelsMatch: "没有符合筛选条件的模型",
+      noModelsListed: "此服务商暂无可用模型",
+      reloadTitle: "切换模型？",
+      reload: "重新加载",
+      reloadDescription: "切换到 {model} 将开始新对话。当前对话仍保留在会话列表中，代理记忆也会保留。是否立即重新加载以应用更改？",
+      settings: "模型设置",
+      newSessions: "对新会话生效",
+      mainModel: "主模型",
+      auxTasks: "辅助任务",
+      moa: "Mixture of Agents（MoA）",
+      change: "更换",
+      configure: "配置",
+      useAs: "设为",
+      current: "当前",
+      allAux: "所有辅助任务",
+      auxiliary: "辅助",
+      main: "主模型",
+      context: "上下文",
+      output: "输出",
+      input: "输入",
+      cacheRead: "缓存读取",
+      reasoning: "推理",
+      tools: "工具调用",
+      vision: "视觉",
+      unset: "（未设置）",
+      notLoaded: "尚未加载",
+      overrideSummary: "{overrides} 项自定义 · {auto} 项自动",
+      autoSummary: "{count} 项任务 · 全部自动",
+      referenceSummary: "{count} 个参考模型",
+      period: "{days}天",
+      analyticsHidden: "Token 和费用统计默认隐藏，因为本地统计不包含辅助调用（上下文压缩、图像分析、网页提取等）及服务商重试，与服务商账单存在差异。",
+      analyticsEnable: "如需显示本地调试估算，请启用以下配置项：{setting}，所在页面：",
+      config: "配置",
+      auxDescription: "辅助任务负责图像分析、会话搜索、上下文压缩等工作。“自动”表示使用主模型；可为特定任务选择成本更低或速度更快的模型。",
+      configuredTasks: "已配置 {count} 项任务",
+      resetAuto: "全部恢复自动",
+      done: "完成",
+      autoMain: "自动（使用主模型）",
+      providerDefault: "（服务商默认模型）",
+      override: "自定义",
+      setAux: "设置辅助模型：{task}",
+      resetTitle: "重置辅助模型",
+      resetDescription: "将所有辅助任务恢复为自动？这将替换各任务已设置的自定义模型。",
+      resetAll: "全部重置",
+      moaTitle: "配置 Mixture of Agents（MoA）预设",
+      moaDescription: "预设会显示为 Mixture of Agents（MoA）服务商下的模型。参考模型提供不同观点，汇总模型负责生成最终回答并调用工具。",
+      default: "默认",
+      setDefault: "设为默认",
+      presetName: "新预设名称",
+      addPreset: "添加预设",
+      referenceModels: "参考模型",
+      modelCount: "{count} 个模型",
+      remove: "移除",
+      addReference: "添加参考模型",
+      aggregator: "汇总模型（负责执行）",
+      selectMoa: "选择 MoA 模型",
+      noRecursiveMoa: "MoA 预设不能将 Mixture of Agents 服务商用作参考模型或汇总模型（不支持递归 MoA）。",
+      provider: "（服务商）",
+      model: "（模型）",
+      setMain: "设置主模型",
+      missingModel: "缺少服务商或模型",
+      expensiveTitle: "高费用模型提醒",
+      expensiveDescription: "此模型的已知价格较高。",
+      switchAnyway: "仍然切换",
+      tasks: {
+        vision: {
+          label: "视觉",
+          hint: "图像分析"
+        },
+        compression: {
+          label: "上下文压缩",
+          hint: "压缩会话上下文"
+        },
+        skills_hub: {
+          label: "技能中心",
+          hint: "搜索技能"
+        },
+        approval: {
+          label: "审批",
+          hint: "智能自动审批"
+        },
+        mcp: {
+          label: "MCP",
+          hint: "MCP 工具路由"
+        },
+        title_generation: {
+          label: "标题生成",
+          hint: "生成会话标题"
+        },
+        review: {
+          label: "审查",
+          hint: "/review 子代理"
+        },
+        triage_specifier: {
+          label: "需求细化",
+          hint: "细化看板需求说明"
+        },
+        kanban_decomposer: {
+          label: "看板任务拆分",
+          hint: "拆分任务"
+        },
+        profile_describer: {
+          label: "配置描述",
+          hint: "自动生成配置描述"
+        },
+        curator: {
+          label: "技能整理",
+          hint: "审查技能使用情况"
+        }
+      }
+    },
     modelsUsed: "使用模型数",
     estimatedCost: "预估费用",
     tokens: "Token",
@@ -886,6 +1015,10 @@ export const zh: Translations = {
   },
 
   files: {
+    preview: "预览",
+    previewUnsupported: "此文件为二进制文件，或文本编码暂不支持预览。可点击下载按钮保存。",
+    previewTooLarge: "仅支持预览不超过 5 MB 的文件。更大的文件请点击下载按钮。",
+    previewFailed: "文件预览失败",
     refreshFiles: "刷新文件",
     pathRequired: "路径为必填项",
     directoryUnavailable: "目录不可用",

@@ -1,25 +1,27 @@
-import { useState } from "react";
 import { Bot, Check, Copy } from "lucide-react";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Markdown } from "@/components/Markdown";
 import { useI18n } from "@/i18n";
 import type { ChatMessage } from "@/lib/web-chat-state";
 import type { WebChatCopy } from "@/lib/web-chat-copy";
+import { MessageImages } from "./MessageImages";
+import { useClipboardCopy } from "@/hooks/useClipboardCopy";
 
-interface MessageRowProps { message: ChatMessage; copy: WebChatCopy }
+interface MessageRowProps { message: ChatMessage; copy: WebChatCopy; profile?: string }
 
-export function MessageRow({ message, copy }: MessageRowProps) {
+export function MessageRow({ message, copy, profile = "" }: MessageRowProps) {
   const { locale } = useI18n();
-  const [copied, setCopied] = useState(false);
-  const [copyError, setCopyError] = useState(false);
-  const copyText = async () => {
-    try { await navigator.clipboard.writeText(message.text); setCopied(true); setCopyError(false); }
-    catch { setCopyError(true); }
-  };
+  const { copied, copyError, copyText } = useClipboardCopy(message.text);
   const copyButton = <Button ghost size="icon" aria-label={copied ? copy.copied : copy.copy} title={copied ? copy.copied : copy.copy}
     className="h-7 w-7 text-text-tertiary hover:text-text-primary" onClick={() => void copyText()}>
     {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
   </Button>;
+
+  if (message.role === "command") return <article aria-label={copy.command} className="min-w-0 pl-10">
+    <div className="mb-2 font-mono text-xs text-text-secondary">{message.name}</div>
+    <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-current/10 bg-midground/[0.025] p-3 font-mono text-xs leading-relaxed">{message.text}</pre>
+    <div className="mt-1">{copyButton}</div>
+  </article>;
 
   if (message.role === "user") {
     const date = message.timestamp ? new Date(message.timestamp * 1000) : null;
@@ -28,7 +30,8 @@ export function MessageRow({ message, copy }: MessageRowProps) {
     const timeOptions: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit", hour12: false };
     return <article aria-label={copy.you} className="flex flex-col items-end gap-1.5">
       <div className="max-w-[90%] rounded-3xl bg-midground/[0.07] px-4 py-3 sm:max-w-[85%] sm:px-5 sm:py-4">
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{message.text}</p>
+        {!!message.images?.length && <MessageImages images={message.images} profile={profile} copy={copy} />}
+        {!!message.text && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">{message.text}</p>}
       </div>
       <div className="flex items-center justify-end gap-2 px-1 text-xs text-text-tertiary">
         {validDate && <time dateTime={validDate.toISOString()} title={validDate.toLocaleString(locale)}>
@@ -53,7 +56,9 @@ export function MessageRow({ message, copy }: MessageRowProps) {
         <summary className="cursor-pointer text-xs">{copy.reasoning}</summary>
         <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed">{message.reasoning}</p>
       </details>}
-      <div className="break-words [overflow-wrap:anywhere]"><Markdown content={message.text} streaming={message.status === "working"} /></div>
+      <div className="break-words [overflow-wrap:anywhere] [&_h1]:text-blue-600 [&_h2]:text-blue-600 [&_h3]:text-blue-600 [&_h4]:text-blue-600 [&_a]:text-blue-600 [&_a]:decoration-blue-600/30 [&_:not(pre)>code]:bg-transparent [&_:not(pre)>code]:p-0 [&_:not(pre)>code]:text-sm [&_:not(pre)>code]:text-blue-600 dark:[&_h1]:text-blue-400 dark:[&_h2]:text-blue-400 dark:[&_h3]:text-blue-400 dark:[&_h4]:text-blue-400 dark:[&_a]:text-blue-400 dark:[&_:not(pre)>code]:text-blue-400">
+        <Markdown content={message.text} streaming={message.status === "working"} />
+      </div>
       {!!message.text && <div className="mt-2 flex items-center gap-2">
         {copyButton}
         {copyError && <span role="status" className="text-xs text-destructive">{copy.copyFailed}</span>}

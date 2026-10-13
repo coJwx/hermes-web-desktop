@@ -93,20 +93,31 @@ pub fn create(
     entry: url::Url,
     data: &std::path::Path,
 ) -> tauri::Result<()> {
-    let maximized = app.state::<crate::window_state::WindowState>().maximized();
+    let window_state = app.state::<crate::window_state::WindowState>();
+    let window_prefs = window_state.snapshot();
+    let maximized = window_prefs.maximized;
     let preferences = app
         .state::<crate::desktop_preferences::DesktopPreferences>()
         .snapshot();
-    let window = WindowBuilder::new(app, "dashboard")
+
+    let initial_width = window_prefs.width.unwrap_or(1360.0);
+    let initial_height = window_prefs.height.unwrap_or(900.0);
+
+    let mut builder = WindowBuilder::new(app, "dashboard")
         .title(title)
-        .inner_size(1360.0, 900.0)
+        .inner_size(initial_width, initial_height)
         .min_inner_size(800.0, 600.0)
         .maximized(maximized)
         .always_on_top(preferences.always_on_top)
         .decorations(false)
         .shadow(true)
-        .visible(false)
-        .build()?;
+        .visible(false);
+
+    if let (Some(x), Some(y)) = (window_prefs.x, window_prefs.y) {
+        builder = builder.position(x, y);
+    }
+
+    let window = builder.build()?;
     let setup = (|| {
         // Keep native menu accelerators, but replace its separate row with the titlebar button.
         window.hide_menu()?;

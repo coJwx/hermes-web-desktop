@@ -99,6 +99,11 @@ export interface Translations {
       stopped: string;
     };
     nav: {
+      files?: string;
+      channels?: string;
+      webhooks?: string;
+      pairing?: string;
+      system?: string;
       analytics: string;
       chat: string;
       config: string;
@@ -299,6 +304,86 @@ export interface Translations {
 
   // ── Models page ──
   models: {
+    ui?: {
+      switchModel: string;
+      unknown: string;
+      filterModels: string;
+      saveGlobalHint: string;
+      persistGlobal: string;
+      refreshModels: string;
+      switch: string;
+      noProvidersMatch: string;
+      noProviders: string;
+      openKeys: string;
+      signInProvider: string;
+      pickProvider: string;
+      noModelsMatch: string;
+      noModelsListed: string;
+      reloadTitle: string;
+      reload: string;
+      reloadDescription: string;
+
+      settings: string;
+      newSessions: string;
+      mainModel: string;
+      auxTasks: string;
+      moa: string;
+      change: string;
+      configure: string;
+      useAs: string;
+      current: string;
+      allAux: string;
+      auxiliary: string;
+      main: string;
+      context: string;
+      output: string;
+      input: string;
+      cacheRead: string;
+      reasoning: string;
+      tools: string;
+      vision: string;
+      unset: string;
+      notLoaded: string;
+      overrideSummary: string;
+      autoSummary: string;
+      referenceSummary: string;
+      period: string;
+      analyticsHidden: string;
+      analyticsEnable: string;
+      config: string;
+      auxDescription: string;
+      configuredTasks: string;
+      resetAuto: string;
+      done: string;
+      autoMain: string;
+      providerDefault: string;
+      override: string;
+      setAux: string;
+      resetTitle: string;
+      resetDescription: string;
+      resetAll: string;
+      moaTitle: string;
+      moaDescription: string;
+      default: string;
+      setDefault: string;
+      presetName: string;
+      addPreset: string;
+      referenceModels: string;
+      modelCount: string;
+      remove: string;
+      addReference: string;
+      aggregator: string;
+      selectMoa: string;
+      noRecursiveMoa: string;
+      provider: string;
+      model: string;
+      setMain: string;
+      missingModel: string;
+      expensiveTitle: string;
+      expensiveDescription: string;
+      switchAnyway: string;
+      tasks: Record<string, { label: string; hint: string }>;
+    };
     modelsUsed: string;
     estimatedCost: string;
     tokens: string;
@@ -1039,6 +1124,10 @@ export interface Translations {
 
   // ── Files page ──
   files: {
+    preview?: string;
+    previewUnsupported?: string;
+    previewTooLarge?: string;
+    previewFailed?: string;
     refreshFiles: string;
     pathRequired: string;
     directoryUnavailable: string;

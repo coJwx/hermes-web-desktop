@@ -35,6 +35,7 @@ export function PageHeaderProvider({
   const displayTitle = titleOverride ?? defaultTitle;
 
   const isChatRoute = ["/chat", "/web-chat"].includes(pathname.replace(/\/$/, ""));
+  const hasChatTabs = pathname.replace(/\/$/, "") === "/web-chat" && !!afterTitle;
   /** Env jump-nav is wide — stack below title on small screens so KEYS stays readable. */
   const isEnvRoute =
     pathname === "/env" || pathname.startsWith("/env/");
@@ -72,7 +73,9 @@ export function PageHeaderProvider({
             <div
               className={cn(
                 "flex min-w-0 flex-1 gap-2 sm:gap-3",
-                afterTitle && isEnvRoute
+                hasChatTabs
+                  ? "flex-row items-center"
+                  : afterTitle && isEnvRoute
                   ? "flex-col items-start sm:flex-row sm:items-center"
                   : afterTitle
                     ? "flex-row flex-wrap items-center"
@@ -82,7 +85,9 @@ export function PageHeaderProvider({
               <h1
                 className={cn(
                   "font-expanded min-w-0 text-sm font-bold tracking-[0.08em] text-midground",
-                  afterTitle && isEnvRoute
+                  hasChatTabs
+                    ? "shrink-0"
+                    : afterTitle && isEnvRoute
                     ? "max-w-full sm:min-w-0 sm:shrink sm:truncate"
                     : afterTitle
                       ? "shrink truncate"
@@ -95,7 +100,9 @@ export function PageHeaderProvider({
                 <div
                   className={cn(
                     "min-w-0 scrollbar-none",
-                    isEnvRoute
+                    hasChatTabs
+                      ? "flex-1 overflow-hidden"
+                      : isEnvRoute
                       ? "w-full overflow-x-auto sm:flex-1 sm:overflow-x-auto"
                       : "shrink-0 overflow-visible",
                   )}

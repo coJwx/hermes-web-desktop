@@ -75,6 +75,11 @@ export const zhHant: Translations = {
       stopped: "已停止",
     },
     nav: {
+      files: "檔案",
+      channels: "訊息管道",
+      webhooks: "Webhooks",
+      pairing: "配對",
+      system: "系統",
       analytics: "分析",
       chat: "對話",
       config: "設定",
@@ -254,6 +259,130 @@ export const zhHant: Translations = {
   },
 
   models: {
+    ui: {
+      switchModel: "切換模型",
+      unknown: "（未知）",
+      filterModels: "篩選供應商與模型…",
+      saveGlobalHint: "儲存至 config.yaml，對新工作階段生效。",
+      persistGlobal: "儲存為全域設定（否則僅對目前工作階段生效）",
+      refreshModels: "重新整理模型清單",
+      switch: "切換",
+      noProvidersMatch: "沒有符合搜尋條件的供應商。",
+      noProviders: "尚未設定模型供應商。請在「金鑰」頁面新增 API 金鑰，或在「模型」頁面登入供應商，以查看可用模型。",
+      openKeys: "開啟金鑰設定",
+      signInProvider: "登入供應商",
+      pickProvider: "請選擇供應商 →",
+      noModelsMatch: "沒有符合篩選條件的模型",
+      noModelsListed: "此供應商暫無可用模型",
+      reloadTitle: "切換模型？",
+      reload: "重新載入",
+      reloadDescription: "切換至 {model} 將開始新對話。目前對話仍保留在工作階段清單中，代理記憶也會保留。是否立即重新載入以套用變更？",
+      settings: "模型設定",
+      newSessions: "對新工作階段生效",
+      mainModel: "主模型",
+      auxTasks: "輔助任務",
+      moa: "Mixture of Agents（MoA）",
+      change: "更換",
+      configure: "設定",
+      useAs: "設為",
+      current: "目前",
+      allAux: "所有輔助任務",
+      auxiliary: "輔助",
+      main: "主模型",
+      context: "上下文",
+      output: "輸出",
+      input: "輸入",
+      cacheRead: "快取讀取",
+      reasoning: "推理",
+      tools: "工具呼叫",
+      vision: "視覺",
+      unset: "（未設定）",
+      notLoaded: "尚未載入",
+      overrideSummary: "{overrides} 項自訂 · {auto} 項自動",
+      autoSummary: "{count} 項任務 · 全部自動",
+      referenceSummary: "{count} 個參考模型",
+      period: "{days}天",
+      analyticsHidden: "Token 與費用統計預設隱藏，因為本地統計不包含輔助呼叫（上下文壓縮、影像分析、網頁擷取等）及供應商重試，與供應商帳單存在差異。",
+      analyticsEnable: "如需顯示本地除錯估算，請啟用以下設定項：{setting}，所在頁面：",
+      config: "設定",
+      auxDescription: "輔助任務負責影像分析、工作階段搜尋、上下文壓縮等工作。「自動」表示使用主模型；可為特定任務選擇成本更低或速度更快的模型。",
+      configuredTasks: "已設定 {count} 項任務",
+      resetAuto: "全部恢復自動",
+      done: "完成",
+      autoMain: "自動（使用主模型）",
+      providerDefault: "（供應商預設模型）",
+      override: "自訂",
+      setAux: "設定輔助模型：{task}",
+      resetTitle: "重置輔助模型",
+      resetDescription: "將所有輔助任務恢復為自動？這將取代各任務已設定的自訂模型。",
+      resetAll: "全部重置",
+      moaTitle: "設定 Mixture of Agents（MoA）預設",
+      moaDescription: "預設會顯示為 Mixture of Agents（MoA）供應商下的模型。參考模型提供不同觀點，彙總模型負責產生最終回答並呼叫工具。",
+      default: "預設",
+      setDefault: "設為預設",
+      presetName: "新預設名稱",
+      addPreset: "新增預設",
+      referenceModels: "參考模型",
+      modelCount: "{count} 個模型",
+      remove: "移除",
+      addReference: "新增參考模型",
+      aggregator: "彙總模型（負責執行）",
+      selectMoa: "選擇 MoA 模型",
+      noRecursiveMoa: "MoA 預設不能將 Mixture of Agents 供應商用作參考模型或彙總模型（不支援遞迴 MoA）。",
+      provider: "（供應商）",
+      model: "（模型）",
+      setMain: "設定主模型",
+      missingModel: "缺少供應商或模型",
+      expensiveTitle: "高費用模型提醒",
+      expensiveDescription: "此模型的已知價格較高。",
+      switchAnyway: "仍然切換",
+      tasks: {
+        vision: {
+          label: "視覺",
+          hint: "影像分析"
+        },
+        compression: {
+          label: "上下文壓縮",
+          hint: "壓縮工作階段上下文"
+        },
+        skills_hub: {
+          label: "技能中心",
+          hint: "搜尋技能"
+        },
+        approval: {
+          label: "審批",
+          hint: "智慧自動審批"
+        },
+        mcp: {
+          label: "MCP",
+          hint: "MCP 工具路由"
+        },
+        title_generation: {
+          label: "標題產生",
+          hint: "產生工作階段標題"
+        },
+        review: {
+          label: "審查",
+          hint: "/review 子代理"
+        },
+        triage_specifier: {
+          label: "需求細化",
+          hint: "細化看板需求說明"
+        },
+        kanban_decomposer: {
+          label: "看板任務拆分",
+          hint: "拆分任務"
+        },
+        profile_describer: {
+          label: "設定描述",
+          hint: "自動產生設定描述"
+        },
+        curator: {
+          label: "技能整理",
+          hint: "審查技能使用情況"
+        }
+      }
+    },
     modelsUsed: "使用模型數",
     estimatedCost: "預估費用",
     tokens: "Token",
@@ -890,6 +1019,10 @@ export const zhHant: Translations = {
   },
 
   files: {
+    preview: "預覽",
+    previewUnsupported: "此檔案為二進位檔案，或文字編碼暫不支援預覽。可點擊下載按鈕儲存。",
+    previewTooLarge: "僅支援預覽不超過 5 MB 的檔案。更大的檔案請點擊下載按鈕。",
+    previewFailed: "檔案預覽失敗",
     refreshFiles: "重新整理檔案",
     pathRequired: "路徑為必填項",
     directoryUnavailable: "目錄不可用",

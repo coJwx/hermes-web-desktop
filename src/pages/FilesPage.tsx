@@ -7,6 +7,7 @@ import {
 } from "react";
 import {
   ArrowUp,
+  Copy,
   Download,
   FileIcon,
   Folder,
@@ -25,12 +26,14 @@ import { Toast } from "@nous-research/ui/ui/components/toast";
 import { useToast } from "@nous-research/ui/hooks/use-toast";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { Modal } from "@/components/Modal";
+import { FilePreviewDialog } from "@/components/FilePreviewDialog";
 import { usePageHeader } from "@/contexts/usePageHeader";
 import { useI18n } from "@/i18n/context";
 import { api } from "@/lib/api";
 import type { ManagedFileEntry, ManagedFilesResponse } from "@/lib/api";
 import { PluginSlot } from "@/plugins";
 import { errorMessage } from "@/lib/api-error";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 const DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -87,6 +90,7 @@ export default function FilesPage() {
   const [deleting, setDeleting] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [pendingDelete, setPendingDelete] = useState<ManagedFileEntry | null>(null);
+  const [previewEntry, setPreviewEntry] = useState<ManagedFileEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const activePath = listing?.path ?? currentPath ?? "";
@@ -241,6 +245,14 @@ export default function FilesPage() {
     }
   };
 
+  const copyPath = async (entry: ManagedFileEntry) => {
+    const copied = await copyTextToClipboard(entry.path);
+    showToast(
+      copied ? t.profiles.commandCopied : t.profiles.copyFailed,
+      copied ? "success" : "error",
+    );
+  };
+
   const confirmDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
@@ -360,7 +372,7 @@ export default function FilesPage() {
             </div>
           )}
 
-          <div className="grid min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_5.5rem] items-center gap-3 border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary">
+          <div className="grid min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_8rem] items-center gap-3 border-b border-border px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary">
             <span>{t.files.colName}</span>
             <span>{t.files.colSize}</span>
             <span>{t.files.colModified}</span>
@@ -371,7 +383,7 @@ export default function FilesPage() {
             <button
               type="button"
               onClick={() => setCurrentPath(listing.parent ?? undefined)}
-              className="grid w-full min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_5.5rem] items-center gap-3 rounded-none border-0 border-b border-border/60 bg-transparent px-4 py-2 text-left text-sm transition hover:bg-background/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
+              className="grid w-full min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_8rem] items-center gap-3 rounded-none border-0 border-b border-border/60 bg-transparent px-4 py-2 text-left text-sm transition hover:bg-background/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
             >
               <span className="flex min-w-0 items-center gap-2 font-mono text-text-secondary">
                 <ArrowUp className="h-4 w-4 shrink-0 text-text-tertiary" />
@@ -394,25 +406,43 @@ export default function FilesPage() {
             listing?.entries.map((entry) => (
               <div
                 key={entry.path}
-                className="grid min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_5.5rem] items-center gap-3 border-b border-border/60 px-4 py-2 text-sm last:border-b-0 hover:bg-background/35"
+                className="grid min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_8rem] items-center gap-3 border-b border-border/60 px-4 py-2 text-sm last:border-b-0 hover:bg-background/35"
               >
-                <button
-                  type="button"
-                  onClick={() => (entry.is_directory ? openDirectory(entry) : void downloadFile(entry))}
-                  className="flex min-w-0 items-center gap-2 rounded-none border-0 bg-transparent text-left font-mono text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
-                >
-                  {entry.is_directory ? (
+                {entry.is_directory ? (
+                  <button
+                    type="button"
+                    onClick={() => openDirectory(entry)}
+                    className="flex min-w-0 items-center gap-2 rounded-none border-0 bg-transparent text-left font-mono text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
+                  >
                     <Folder className="h-4 w-4 shrink-0 text-warning" />
-                  ) : (
+                    <span className="truncate" title={entry.name}>{entry.name}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPreviewEntry(entry)}
+                    className="flex min-w-0 select-text items-center gap-2 rounded-none border-0 bg-transparent text-left font-mono text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
+                    aria-label={`${t.files.preview ?? "Preview"}: ${entry.name}`}
+                  >
                     <FileIcon className="h-4 w-4 shrink-0 text-text-tertiary" />
-                  )}
-                  <span className="truncate">{entry.name}</span>
-                </button>
+                    <span className="truncate" title={entry.name}>{entry.name}</span>
+                  </button>
+                )}
                 <span className="text-xs tabular-nums text-text-secondary">{formatBytes(entry.size)}</span>
                 <span className="truncate text-xs text-text-secondary">
                   {Number.isFinite(entry.mtime) ? DATE_FORMAT.format(entry.mtime * 1000) : "-"}
                 </span>
                 <span className="flex justify-end gap-1">
+                  <Button
+                    ghost
+                    size="icon"
+                    type="button"
+                    onClick={() => void copyPath(entry)}
+                    aria-label={`${t.webhooks.copy}: ${entry.path}`}
+                    title={`${t.webhooks.copy}: ${entry.path}`}
+                  >
+                    <Copy />
+                  </Button>
                   {entry.is_directory ? (
                     <Button
                       ghost
@@ -452,6 +482,14 @@ export default function FilesPage() {
       </Card>
 
       <PluginSlot name="files:bottom" />
+
+      {previewEntry && (
+        <FilePreviewDialog
+          key={previewEntry.path}
+          entry={previewEntry}
+          onClose={() => setPreviewEntry(null)}
+        />
+      )}
 
       <Modal
         open={createDialogOpen}

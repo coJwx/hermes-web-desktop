@@ -8,9 +8,22 @@ import { input, json, mountEditor, press, profileResponse, setupEditorDOM } from
 let app: Awaited<ReturnType<typeof mountEditor>> | undefined;
 let tickets: number;
 const latest = () => ChatTestSocket.instances.at(-1)!;
-const composer = () => document.querySelector<HTMLTextAreaElement>('textarea[placeholder="Message Hermes…"]')!;
+const composer = () => document.querySelector<HTMLTextAreaElement>('textarea[aria-autocomplete="list"]')!;
 const prompts = () => ChatTestSocket.instances.flatMap((socket) => socket.frames.filter((frame) => frame.method === "prompt.submit"));
 const settle = async () => { await act(async () => { await Promise.resolve(); }); };
+const tabButtons = () => [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+const tabMenu = () => document.querySelector<HTMLElement>('[role="menu"][aria-label="Open conversation tab"]')!;
+const activeTab = () => document.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')!;
+
+function seedSession(id: string, title: string) {
+  const conversation = {
+    session_id: "live-" + id, stored_session_id: id,
+    messages: [{ role: "user", text: title }, { role: "assistant", text: "Reply to " + title }],
+    info: { model: "test-model", profile_name: "A", title }, running: false,
+  };
+  ChatTestSocket.conversations.set(id, conversation);
+  return conversation;
+}
 
 beforeEach(() => {
   setupEditorDOM();
@@ -148,25 +161,177 @@ describe("Web Chat over the real JSON-RPC client", () => {
     expect(ChatTestSocket.conversations.get(a.stored_session_id)?.messages.at(-1)?.text).toBe("Recovered reply");
     const freshId = latest().conversation!.stored_session_id;
     await input(composer(), "Draft for the new conversation");
-    const chooseSession = async (id: string) => {
+    const chooseTab = async (id: string) => {
       await act(async () => {
-        document.querySelector<HTMLButtonElement>('[role="group"][aria-label="Switch conversation"] [role="combobox"]')!.click();
-      });
-      await act(async () => {
-        const label = ChatTestSocket.conversations.get(id)?.messages[0]?.text ?? "New chat";
-        const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')]
-          .find((node) => node.textContent?.split("\n")[0] === label);
-        if (!option) throw new Error("Missing conversation option: " + id);
-        expect(option.textContent).toContain("gui");
-        expect(option.textContent).toContain(ChatTestSocket.conversations.get(id)!.messages.length + " msgs");
-        option.click();
+        const tab = tabButtons().find((node) => node.dataset.sessionId === id);
+        if (!tab) throw new Error("Missing conversation tab: " + id);
+        tab.click();
       });
       await settle();
     };
-    await chooseSession(a.stored_session_id);
+    await chooseTab(a.stored_session_id);
     expect(document.querySelector('[role="log"]')?.textContent).toContain("Recovered reply");
     expect(composer().value).toBe("");
-    await chooseSession(freshId);
+    await chooseTab(freshId);
     expect(composer().value).toBe("Draft for the new conversation");
+  });
+
+  it("opens tabs from the header picker only after a choice and excludes occupied conversations from both pickers", async () => {
+    const history = seedSession("history", "Existing discussion");
+    seedSession("other", "Another discussion");
+    app = await mountEditor(<WebChatPage />);
+    await settle();
+    const originalId = latest().conversation!.stored_session_id;
+    await input(composer(), "Original discussion");
+    await press("Send");
+    await act(async () => {
+      latest().event("session.info", { title: "Original discussion" });
+      latest().finish("Original reply");
+    });
+    const originalTab = activeTab();
+    const socketCount = ChatTestSocket.instances.length;
+    expect(originalTab.closest('[role="banner"]')).not.toBeNull();
+
+    await press("Open conversation tab");
+    expect(tabButtons()).toHaveLength(1);
+    expect(ChatTestSocket.instances).toHaveLength(socketCount);
+    expect(tabMenu().querySelector('[data-session-id="' + originalId + '"]')).toBeNull();
+    const historyOption = tabMenu().querySelector<HTMLButtonElement>('[data-session-id="history"]')!;
+    expect(historyOption.textContent).toContain("2 msgs");
+    expect(historyOption.textContent).toContain("gui");
+    await act(async () => { historyOption.click(); });
+    await settle();
+    expect(tabButtons().map((tab) => tab.dataset.sessionId)).toEqual([originalId, history.stored_session_id]);
+    expect(activeTab().textContent).toBe("Existing discussion");
+    expect(latest().frames.find((frame) => frame.method === "session.resume")?.params?.session_id).toBe(history.stored_session_id);
+
+    await press("Open conversation tab");
+    expect(tabMenu().querySelector('[data-session-id="history"]')).toBeNull();
+    await act(async () => { tabMenu().dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    expect(tabMenu()).toBeNull();
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Open conversation tab");
+
+    await press("Open conversation tab");
+    await press("New chat", tabMenu());
+    await settle();
+    expect(activeTab().textContent).toBe("Untitled");
+    expect(tabButtons().map((tab) => tab.textContent)).toEqual(["Original discussion", "Existing discussion", "Untitled"]);
+    const newId = latest().conversation!.stored_session_id;
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('[role="group"][aria-label="Switch conversation"] [role="combobox"]')!.click();
+    });
+    const options = [...document.querySelectorAll<HTMLElement>('[role="option"]')];
+    expect(options.some((option) => option.textContent?.startsWith("Original discussion"))).toBe(false);
+    expect(options.some((option) => option.textContent?.startsWith("Existing discussion"))).toBe(false);
+    expect(options.some((option) => option.textContent?.startsWith("Another discussion"))).toBe(true);
+    expect(options.some((option) => option.getAttribute("aria-selected") === "true")).toBe(true);
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+
+    await press("Close tab: Original discussion");
+    expect(activeTab().dataset.sessionId).toBe(newId);
+    expect(ChatTestSocket.conversations.has(originalId)).toBe(true);
+    await press("Open conversation tab");
+    expect(tabMenu().querySelector('[data-session-id="' + originalId + '"]')).not.toBeNull();
+    expect(tabMenu().querySelector('[data-session-id="' + newId + '"]')).toBeNull();
+    await act(async () => { tabMenu().querySelector<HTMLButtonElement>('[data-session-id="' + originalId + '"]')!.click(); });
+    await settle();
+    expect(activeTab().dataset.sessionId).toBe(originalId);
+    await act(async () => { activeTab().dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })); });
+    await settle();
+    expect(activeTab().dataset.sessionId).toBe(newId);
+    expect(document.activeElement).toBe(activeTab());
+    await press("Close tab: Untitled");
+    await settle();
+    expect(activeTab().dataset.sessionId).toBe(history.stored_session_id);
+    await press("Close tab: Existing discussion");
+    await settle();
+    expect(activeTab().dataset.sessionId).toBe(originalId);
+    expect(tabButtons()).toHaveLength(1);
+    expect(document.querySelector('[aria-label^="Close tab:"]')).toBeNull();
+    expect(ChatTestSocket.conversations.has(history.stored_session_id)).toBe(true);
+  });
+
+  it("commits successful tab changes atomically, keeps drafts on failures, and blocks navigation while a request is pending", async () => {
+    const history = seedSession("history", "Existing discussion");
+    app = await mountEditor(<WebChatPage />);
+    await settle();
+    const original = latest().conversation!;
+    await input(composer(), "Repeated question");
+    await press("Send");
+    await act(async () => { latest().finish("Original reply"); });
+    await input(composer(), "Repeated question");
+    const sendFrame = ChatTestSocket.prototype.send;
+    let held: { socket: ChatTestSocket; id: string } | undefined;
+    const hold = vi.spyOn(ChatTestSocket.prototype, "send").mockImplementation(function (this: ChatTestSocket, text: string) {
+      const frame = JSON.parse(text);
+      if (frame.method === "session.resume" && frame.params.session_id === history.stored_session_id) {
+        this.frames.push(frame);
+        held = { socket: this, id: frame.id };
+      } else sendFrame.call(this, text);
+    });
+
+    await press("Open conversation tab");
+    await act(async () => { tabMenu().querySelector<HTMLButtonElement>('[data-session-id="history"]')!.click(); });
+    await settle();
+    expect(held).toBeDefined();
+    expect(tabButtons()).toHaveLength(1);
+    expect(activeTab().dataset.sessionId).toBe(original.stored_session_id);
+    const socketCount = ChatTestSocket.instances.length;
+    await press("Open conversation tab");
+    await press("New chat");
+    expect(ChatTestSocket.instances).toHaveLength(socketCount);
+    await act(async () => { held!.socket.receive({ id: held!.id, error: { code: 4007, message: "Resume refused" } }); });
+    await settle();
+    expect(tabButtons()).toHaveLength(1);
+    expect(activeTab().dataset.sessionId).toBe(original.stored_session_id);
+    expect(composer().value).toBe("Repeated question");
+    expect(document.querySelector('[role="alert"]')?.textContent).toContain("Resume refused");
+    hold.mockRestore();
+    await press("Reconnect");
+    expect(composer().value).toBe("Repeated question");
+    await press("Open conversation tab");
+    await act(async () => { tabMenu().querySelector<HTMLButtonElement>('[data-session-id="history"]')!.click(); });
+    await settle();
+    expect(tabButtons()).toHaveLength(2);
+    await input(composer(), "History draft");
+    await act(async () => {
+      latest().event("message.start");
+      latest().request("pending", "approval", { command: "continue", choices: ["once", "deny"] });
+    });
+    const resumeCount = ChatTestSocket.instances.flatMap((socket) => socket.frames.filter((frame) => frame.method === "session.resume")).length;
+    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.click(); });
+    await press("Open conversation tab");
+    expect(tabMenu()).toBeNull();
+    expect(activeTab().dataset.sessionId).toBe(history.stored_session_id);
+    expect(ChatTestSocket.instances.flatMap((socket) => socket.frames.filter((frame) => frame.method === "session.resume"))).toHaveLength(resumeCount);
+    await press("Allow once");
+    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.click(); });
+    await settle();
+    expect(composer().value).toBe("Repeated question");
+    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === history.stored_session_id)!.click(); });
+    await settle();
+    expect(composer().value).toBe("History draft");
+    expect(prompts()).toHaveLength(1);
+    expect(latest().frames.find((frame) => frame.method === "session.resume")?.params?.close_on_disconnect).toBe(false);
+    await act(async () => { latest().finish("History reply"); });
+    let promptAck: { socket: ChatTestSocket; id: string } | undefined;
+    vi.spyOn(ChatTestSocket.prototype, "send").mockImplementation(function (this: ChatTestSocket, text: string) {
+      const frame = JSON.parse(text);
+      if (frame.method === "prompt.submit") {
+        this.frames.push(frame);
+        promptAck = { socket: this, id: frame.id };
+      } else sendFrame.call(this, text);
+    });
+    await press("Send");
+    expect(promptAck).toBeDefined();
+    await press("Open conversation tab");
+    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.click(); });
+    expect(tabMenu()).toBeNull();
+    expect(activeTab().dataset.sessionId).toBe(history.stored_session_id);
+    await act(async () => {
+      promptAck!.socket.receive({ id: promptAck!.id, result: { status: "streaming" } });
+    });
+    expect(composer().value).toBe("");
+    expect(tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.disabled).toBe(false);
   });
 });

@@ -39,7 +39,9 @@
     "qrcode": "1.5.4",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "react-markdown": "10.1.0",
     "react-router": "8.3.0",
+    "remark-gfm": "4.0.1",
     "tailwind-merge": "3.6.0",
     "tailwindcss": "4.3.3",
     "unicode-animations": "1.0.3"
@@ -49,6 +51,8 @@
     "@rolldown/plugin-babel": "0.2.3",
     "@tauri-apps/cli": "2.12.1",
     "@types/babel__core": "7.20.5",
+    "@types/hast": "3.0.5",
+    "@types/mdast": "4.0.4",
     "@types/node": "22.20.1",
     "@types/qrcode": "1.5.6",
     "@types/react": "19.2.17",
@@ -57,8 +61,11 @@
     "babel-plugin-react-compiler": "1.0.0",
     "eslint-plugin-react-refresh": "0.5.3",
     "jsdom": "^30.1.1",
+    "remark-parse": "11.0.0",
+    "remark-rehype": "11.1.2",
     "three": "0.180.0",
     "typescript": "6.0.3",
+    "unified": "11.0.5",
     "vite": "8.2.0",
     "vitest": "4.1.10"
   }

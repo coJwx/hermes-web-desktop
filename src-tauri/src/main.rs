@@ -47,6 +47,8 @@ struct ConnectionSettings {
     backend_url: String,
     data_directory: String,
     error: Option<String>,
+    servers: Vec<settings::ServerProfile>,
+    active_id: Option<String>,
 }
 
 #[tauri::command]
@@ -55,13 +57,17 @@ fn connection_settings(
     state: tauri::State<'_, DesktopState>,
 ) -> Result<ConnectionSettings, String> {
     trusted(&window)?;
-    let (backend_url, read_error) = match settings::load(&state.settings_path) {
-        Ok(url) => (url, None),
-        Err(error) => (
-            String::new(),
-            Some(format!("{error}。请输入新地址以修复连接设置。")),
-        ),
-    };
+    let (backend_url, servers, active_id, read_error) =
+        match settings::load_connection_data(&state.settings_path) {
+            Ok(Some(data)) => (data.backend_url, data.servers, data.active_id, None),
+            Ok(None) => (settings::DEFAULT_BACKEND.to_string(), Vec::new(), None, None),
+            Err(error) => (
+                String::new(),
+                Vec::new(),
+                None,
+                Some(format!("{error}。请输入新地址以修复连接设置。")),
+            ),
+        };
     Ok(ConnectionSettings {
         backend_url,
         data_directory: state
@@ -77,7 +83,31 @@ fn connection_settings(
                 .expect("connection error lock poisoned")
                 .clone()
         }),
+        servers,
+        active_id,
     })
+}
+
+#[tauri::command]
+fn save_server_profile(
+    window: WebviewWindow,
+    state: tauri::State<'_, DesktopState>,
+    name: String,
+    url: String,
+    id: Option<String>,
+) -> Result<settings::ServerProfile, String> {
+    trusted(&window)?;
+    settings::upsert_profile(&state.settings_path, &name, &url, id.as_deref())
+}
+
+#[tauri::command]
+fn remove_server_profile(
+    window: WebviewWindow,
+    state: tauri::State<'_, DesktopState>,
+    id: String,
+) -> Result<(), String> {
+    trusted(&window)?;
+    settings::remove_profile(&state.settings_path, &id)
 }
 
 #[tauri::command]
@@ -274,7 +304,9 @@ fn main() {
             if window.label() == "dashboard"
                 && matches!(
                     event,
-                    tauri::WindowEvent::Resized(_) | tauri::WindowEvent::CloseRequested { .. }
+                    tauri::WindowEvent::Resized(_)
+                        | tauri::WindowEvent::Moved(_)
+                        | tauri::WindowEvent::CloseRequested { .. }
                 )
             {
                 window_state::remember(window);
@@ -295,6 +327,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             connection_settings,
             connect_backend,
+            save_server_profile,
+            remove_server_profile,
             titlebar::titlebar_action,
             about::about_details
         ])

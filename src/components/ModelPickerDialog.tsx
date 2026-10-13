@@ -15,6 +15,8 @@ import { cn, themedBody } from "@/lib/utils";
 import { queryMatchesProviderOnly } from "@/lib/model-picker-filter";
 import { fuzzyRank, modelSearchText } from "@hermes/shared";
 import { errorMessage } from "@/lib/api-error";
+import { useI18n } from "@/i18n";
+import { en } from "@/i18n/en";
 
 /**
  * Two-stage model picker modal.
@@ -78,6 +80,8 @@ interface Props {
 }
 
 export function ModelPickerDialog(props: Props) {
+  const { t } = useI18n();
+  const m = t.models.ui ?? en.models.ui!;
   const {
     gw,
     sessionId,
@@ -85,7 +89,7 @@ export function ModelPickerDialog(props: Props) {
     loader,
     onApply,
     onClose,
-    title = "Switch Model",
+    title = m.switchModel,
     alwaysGlobal = false,
   } = props;
   const standalone = !!loader && !!onApply;
@@ -279,7 +283,7 @@ export function ModelPickerDialog(props: Props) {
             message:
               result.confirm_message ||
               result.warning ||
-              "This model has unusually high known pricing.",
+              m.expensiveDescription,
           });
           return;
         }
@@ -307,7 +311,7 @@ export function ModelPickerDialog(props: Props) {
             message:
               result.confirm_message ||
               result.warning ||
-              "This model has unusually high known pricing.",
+              m.expensiveDescription,
           });
           return;
         }
@@ -350,7 +354,7 @@ export function ModelPickerDialog(props: Props) {
           size="icon"
           onClick={onClose}
           className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
-          aria-label="Close"
+          aria-label={t.common.close}
         >
           <X />
         </Button>
@@ -363,7 +367,7 @@ export function ModelPickerDialog(props: Props) {
             {title}
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-            current: {currentModel || "(unknown)"}
+            {m.current}: {currentModel || m.unknown}
             {currentProviderSlug && ` · ${currentProviderSlug}`}
           </p>
         </header>
@@ -373,7 +377,7 @@ export function ModelPickerDialog(props: Props) {
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               autoFocus
-              placeholder="Filter providers and models…"
+              placeholder={m.filterModels}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-7 h-8 text-sm"
@@ -419,7 +423,7 @@ export function ModelPickerDialog(props: Props) {
         <footer className="border-t border-border px-5 py-3.5 flex items-center justify-between gap-3 flex-wrap bg-current/[0.02]">
           {alwaysGlobal ? (
             <span className="text-xs text-muted-foreground">
-              Saves to config.yaml — applies to new sessions.
+              {m.saveGlobalHint}
             </span>
           ) : (
             <div className="flex items-center gap-2">
@@ -435,7 +439,7 @@ export function ModelPickerDialog(props: Props) {
                 className="normal-case tracking-normal text-xs text-muted-foreground cursor-pointer font-sans"
                 htmlFor="model-picker-persist-global"
               >
-                Persist globally (otherwise this session only)
+                {m.persistGlobal}
               </Label>
             </div>
           )}
@@ -448,24 +452,24 @@ export function ModelPickerDialog(props: Props) {
               disabled={applying || loading || refreshing}
             >
               {refreshing ? <Spinner /> : <RefreshCw className="h-3.5 w-3.5" />}
-              Refresh Models
+              {m.refreshModels}
             </Button>
             <Button outlined size="sm" onClick={onClose} disabled={applying}>
-              Cancel
+              {t.common.cancel}
             </Button>
             <Button size="sm" onClick={confirm} disabled={!canConfirm}>
-              {applying ? <Spinner /> : "Switch"}
+              {applying ? <Spinner /> : m.switch}
             </Button>
           </div>
         </footer>
       </div>
       <ConfirmDialog
         open={!!pendingConfirm}
-        title="Expensive Model Warning"
+        title={m.expensiveTitle}
         description={pendingConfirm?.message}
         destructive
-        confirmLabel="Switch anyway"
-        cancelLabel="Cancel"
+        confirmLabel={m.switchAnyway}
+        cancelLabel={t.common.cancel}
         loading={applying}
         onCancel={() => setPendingConfirm(null)}
         onConfirm={() => {
@@ -483,10 +487,6 @@ export function ModelPickerDialog(props: Props) {
 /* ------------------------------------------------------------------ */
 /*  Provider column                                                    */
 /* ------------------------------------------------------------------ */
-
-/** Empty picker: no key and no OAuth login anywhere. Points at the two in-app fixes. */
-export const NO_PROVIDERS_MESSAGE =
-  "No model providers are set up yet. Add an API key under Keys or sign in to a provider under Models to see models here.";
 
 function ProviderColumn({
   loading,
@@ -508,11 +508,13 @@ function ProviderColumn({
   /** The links below navigate away; the full-screen dialog must close or it keeps covering the target page. */
   onClose(): void;
 }) {
+  const { t } = useI18n();
+  const m = t.models.ui ?? en.models.ui!;
   return (
     <div className="border-r border-border overflow-y-auto">
       {loading && (
         <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
-          <Spinner className="text-xs" /> loading…
+          <Spinner className="text-xs" /> {t.common.loading}
         </div>
       )}
 
@@ -521,16 +523,16 @@ function ProviderColumn({
       {!loading && !error && providers.length === 0 && (
         <div className="p-4 text-xs text-muted-foreground">
           {query || total > 0 ? (
-            <span className="italic">No providers match your search.</span>
+            <span className="italic">{m.noProvidersMatch}</span>
           ) : (
             <div className="flex flex-col gap-2">
-              <span>{NO_PROVIDERS_MESSAGE}</span>
+              <span>{m.noProviders}</span>
               <div className="flex flex-wrap gap-2">
                 <Link to="/env" onClick={onClose} className="underline underline-offset-2 hover:text-foreground">
-                  Open Keys
+                  {m.openKeys}
                 </Link>
                 <Link to="/models" onClick={onClose} className="underline underline-offset-2 hover:text-foreground">
-                  Sign in to a provider
+                  {m.signInProvider}
                 </Link>
               </div>
             </div>
@@ -555,7 +557,7 @@ function ProviderColumn({
                 {p.is_current && <CurrentTag />}
               </div>
               <div className="text-xs text-text-secondary font-mono truncate">
-                {p.slug} · {p.total_models ?? p.models?.length ?? 0} models
+                {p.slug} · {m.modelCount.replace("{count}", String(p.total_models ?? p.models?.length ?? 0))}
               </div>
             </div>
           </ListItem>
@@ -588,11 +590,13 @@ function ModelColumn({
   onSelect(model: string): void;
   onConfirm(model: string): void;
 }) {
+  const { t } = useI18n();
+  const m = t.models.ui ?? en.models.ui!;
   if (!provider) {
     return (
       <div className="overflow-y-auto">
         <div className="p-4 text-xs text-muted-foreground italic">
-          pick a provider →
+          {m.pickProvider}
         </div>
       </div>
     );
@@ -609,8 +613,8 @@ function ModelColumn({
       {models.length === 0 ? (
         <div className="p-4 text-xs text-muted-foreground italic">
           {allModels.length
-            ? "no models match your filter"
-            : "no models listed for this provider"}
+            ? m.noModelsMatch
+            : m.noModelsListed}
         </div>
       ) : (
         models.map(({ model: m, positions }) => {
@@ -642,9 +646,11 @@ function ModelColumn({
 }
 
 function CurrentTag() {
+  const { t } = useI18n();
+  const m = t.models.ui ?? en.models.ui!;
   return (
     <span className="text-display text-xs tracking-wider text-primary shrink-0">
-      current
+      {m.current}
     </span>
   );
 }

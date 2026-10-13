@@ -80,6 +80,11 @@ export const en: Translations = {
       stopped: "Stopped",
     },
     nav: {
+      files: "Files",
+      channels: "Channels",
+      webhooks: "Webhooks",
+      pairing: "Pairing",
+      system: "System",
       analytics: "Analytics",
       chat: "Chat",
       config: "Config",
@@ -283,6 +288,130 @@ export const en: Translations = {
   },
 
   models: {
+    ui: {
+      switchModel: "Switch Model",
+      unknown: "(unknown)",
+      filterModels: "Filter providers and models…",
+      saveGlobalHint: "Saves to config.yaml — applies to new sessions.",
+      persistGlobal: "Persist globally (otherwise this session only)",
+      refreshModels: "Refresh Models",
+      switch: "Switch",
+      noProvidersMatch: "No providers match your search.",
+      noProviders: "No model providers are set up yet. Add an API key under Keys or sign in to a provider under Models to see models here.",
+      openKeys: "Open Keys",
+      signInProvider: "Sign in to a provider",
+      pickProvider: "pick a provider →",
+      noModelsMatch: "no models match your filter",
+      noModelsListed: "no models listed for this provider",
+      reloadTitle: "Switch model?",
+      reload: "Reload",
+      reloadDescription: "Switching to {model} starts a fresh chat. Your current chat stays in your Sessions list and the agent's memory is kept. Reload now to apply it?",
+      settings: "Model Settings",
+      newSessions: "applies to new sessions",
+      mainModel: "Main model",
+      auxTasks: "Auxiliary tasks",
+      moa: "Mixture of Agents",
+      change: "Change",
+      configure: "Configure",
+      useAs: "Use as",
+      current: "current",
+      allAux: "All auxiliary tasks",
+      auxiliary: "Auxiliary",
+      main: "main",
+      context: "context",
+      output: "Output",
+      input: "Input",
+      cacheRead: "Cache Read",
+      reasoning: "Reasoning",
+      tools: "Tools",
+      vision: "Vision",
+      unset: "(unset)",
+      notLoaded: "not loaded",
+      overrideSummary: "{overrides} overrides · {auto} auto",
+      autoSummary: "{count} tasks · all auto",
+      referenceSummary: "{count} references",
+      period: "{days}d",
+      analyticsHidden: "Token and cost analytics are hidden because local counts exclude auxiliary calls (compression, vision, web extraction, etc.) and provider retries, so they differ from your provider bill.",
+      analyticsEnable: "To show the local debug estimate, enable {setting} in",
+      config: "Config",
+      auxDescription: "Auxiliary tasks handle side jobs such as vision, session search, and compression. Auto means using the main model. Assign a different model to a task when you want a cheaper or faster model for that job.",
+      configuredTasks: "{count} tasks configured",
+      resetAuto: "Reset all to auto",
+      done: "Done",
+      autoMain: "auto (use main model)",
+      providerDefault: "(provider default)",
+      override: "Override",
+      setAux: "Set auxiliary model: {task}",
+      resetTitle: "Reset auxiliary models",
+      resetDescription: "Reset every auxiliary task to auto? This replaces all per-task model assignments.",
+      resetAll: "Reset all",
+      moaTitle: "Configure Mixture of Agents presets",
+      moaDescription: "Presets appear as models under the Mixture of Agents provider. Reference models produce perspectives; the aggregator is the acting model that answers and calls tools.",
+      default: "Default",
+      setDefault: "Set default",
+      presetName: "new preset name",
+      addPreset: "Add preset",
+      referenceModels: "Reference models",
+      modelCount: "{count} models",
+      remove: "Remove",
+      addReference: "Add reference model",
+      aggregator: "Aggregator (acting model)",
+      selectMoa: "Select MoA Model",
+      noRecursiveMoa: "MoA presets cannot use the Mixture of Agents provider as a reference or aggregator (no recursive MoA).",
+      provider: "(provider)",
+      model: "(model)",
+      setMain: "Set Main Model",
+      missingModel: "Missing provider/model",
+      expensiveTitle: "Expensive Model Warning",
+      expensiveDescription: "This model has unusually high known pricing.",
+      switchAnyway: "Switch anyway",
+      tasks: {
+        vision: {
+          label: "Vision",
+          hint: "Image analysis"
+        },
+        compression: {
+          label: "Compression",
+          hint: "Context compaction"
+        },
+        skills_hub: {
+          label: "Skills Hub",
+          hint: "Skill search"
+        },
+        approval: {
+          label: "Approval",
+          hint: "Smart auto-approve"
+        },
+        mcp: {
+          label: "MCP",
+          hint: "MCP tool routing"
+        },
+        title_generation: {
+          label: "Title Generation",
+          hint: "Session titles"
+        },
+        review: {
+          label: "Review",
+          hint: "/review subagent"
+        },
+        triage_specifier: {
+          label: "Triage Specifier",
+          hint: "Kanban specification refinement"
+        },
+        kanban_decomposer: {
+          label: "Kanban Decomposer",
+          hint: "Task decomposition"
+        },
+        profile_describer: {
+          label: "Profile Describer",
+          hint: "Auto profile descriptions"
+        },
+        curator: {
+          label: "Curator",
+          hint: "Skill-usage review"
+        }
+      }
+    },
     modelsUsed: "Models Used",
     estimatedCost: "Est. Cost",
     tokens: "tokens",
@@ -1025,6 +1154,10 @@ export const en: Translations = {
   },
 
   files: {
+    preview: "Preview",
+    previewUnsupported: "This binary file or text encoding cannot be previewed. Use the download button to save it.",
+    previewTooLarge: "Preview is limited to files up to 5 MB. Use the download button for larger files.",
+    previewFailed: "Could not preview file",
     refreshFiles: "Refresh files",
     pathRequired: "Path required",
     directoryUnavailable: "Directory unavailable",

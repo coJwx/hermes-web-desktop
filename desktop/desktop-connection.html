@@ -12,7 +12,18 @@
     h1{font-size:30px;line-height:1.2;margin:0 0 12px}p{color:#c5bcb0;font-size:14px;line-height:1.65}
     form{margin-top:28px;padding-top:24px;border-top:1px solid #ffac0240}label{display:block;font-size:14px;margin-bottom:10px}
     input{width:100%;min-height:48px;background:#21160b;border:1px solid #8f6b32;border-radius:6px;color:#fff;padding:12px;font-size:15px}
-    input:focus-visible,button:focus-visible{outline:2px solid #ffac02;outline-offset:3px}
+    input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid #ffac02;outline-offset:3px}
+    select{width:100%;min-height:44px;background:#21160b;border:1px solid #8f6b32;border-radius:6px;color:#fff;padding:10px;font-size:14px;margin-bottom:12px;cursor:pointer}
+    .server-list{margin-bottom:18px;display:flex;flex-direction:column;gap:8px}
+    .server-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#21160b;border:1px solid #4a3821;border-radius:6px;font-size:13px;transition:border-color .15s}
+    .server-item:hover{border-color:#8f6b32}
+    .server-item.active{border-color:#ffac02;background:#2a1b0c}
+    .server-info{cursor:pointer;flex:1;min-width:0;margin-right:12px}
+    .server-name{font-weight:700;color:#ffac02;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .server-url{font-size:12px;color:#a99c8c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .server-actions{display:flex;gap:6px}
+    .btn-del{background:transparent;border:none;color:#ffafa1;cursor:pointer;font-size:12px;padding:4px 8px;border-radius:4px}
+    .btn-del:hover{background:#ffafa120}
     .hint{font-size:12px;margin:10px 0 22px}button{width:100%;min-height:48px;border:1px solid #ffac02;border-radius:6px;background:#ffac02;color:#170d02;font-size:15px;font-weight:700;cursor:pointer}
     button:disabled{opacity:.6;cursor:wait}#status{min-height:48px;margin-bottom:0;overflow-wrap:anywhere}#status[data-error=true]{color:#ffafa1}
     footer{margin-top:24px;padding-top:18px;border-top:1px solid #ffffff15;color:#a99c8c;font-size:12px;line-height:1.7}
@@ -26,6 +37,12 @@
   <h1>连接你的 Hermes</h1>
   <p>前端已内置在此应用中。填写远程后端地址，即可访问会话、配置与聊天；无需在本机启动 Python 服务。</p>
   <form id="connection-form">
+    <div id="servers-container" style="display:none;margin-bottom:16px">
+      <label>已保存的服务器</label>
+      <div id="server-list" class="server-list"></div>
+    </div>
+    <label for="server-name">服务器备注名称（可选）</label>
+    <input id="server-name" name="serverName" type="text" placeholder="例如：生产集群运维节点、本地GPU机" style="margin-bottom:12px;min-height:40px;font-size:14px">
     <label for="backend-url">远程后端地址</label>
     <input id="backend-url" name="backendUrl" type="url" required autocomplete="url" spellcheck="false" placeholder="http://10.144.1.2:9119" aria-describedby="url-hint status" autofocus>
     <p class="hint" id="url-hint">支持 HTTP / HTTPS 与路径前缀。地址保存在本机；公网连接请使用 HTTPS，HTTP 不加密账号和数据。</p>

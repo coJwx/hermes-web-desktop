@@ -95,13 +95,21 @@ pub fn create(app: &tauri::AppHandle, bridge: &Bridge, entry: url::Url) -> Resul
     }
     #[cfg(not(windows))]
     {
-        tauri::WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::External(entry))
+        let window_state = app.state::<crate::window_state::WindowState>();
+        let window_prefs = window_state.snapshot();
+        let initial_width = window_prefs.width.unwrap_or(1360.0);
+        let initial_height = window_prefs.height.unwrap_or(900.0);
+        let mut builder = tauri::WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::External(entry))
             .title(title)
             .data_directory(state.webview_dir.clone())
-            .inner_size(1360.0, 900.0)
+            .inner_size(initial_width, initial_height)
             .min_inner_size(800.0, 600.0)
-            .maximized(app.state::<crate::window_state::WindowState>().maximized())
-            .on_navigation(|url| matches!(url.scheme(), "http" | "https"))
+            .maximized(window_prefs.maximized)
+            .on_navigation(|url| matches!(url.scheme(), "http" | "https"));
+        if let (Some(x), Some(y)) = (window_prefs.x, window_prefs.y) {
+            builder = builder.position(x, y);
+        }
+        builder
             .build()
             .map(|_| ())
             .map_err(|e| e.to_string())
