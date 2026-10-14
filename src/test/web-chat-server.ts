@@ -21,12 +21,16 @@ export class ChatTestSocket extends EventTarget {
   static instances: ChatTestSocket[] = [];
   static conversations = new Map<string, Conversation>();
   static next = 0;
+  static epoch = "test";
+  static replayTruncated = false;
+  static events = new Map<string, Array<Record<string, unknown>>>();
   static rejectNext = false;
   static loseNextAck = false;
   readyState = 0;
   readonly url: string;
   readonly frames: Frame[] = [];
   conversation: Conversation | null = null;
+  readonly attached = new Set<string>();
 
   constructor(url: string) {
     super();
@@ -36,7 +40,7 @@ export class ChatTestSocket extends EventTarget {
       if (this.readyState !== 0) return;
       this.readyState = 1;
       this.dispatchEvent(new Event("open"));
-      this.event("gateway.ready", { heartbeat: false, replay_epoch: "test" }, "");
+      this.event("gateway.ready", { heartbeat: false, replay_epoch: ChatTestSocket.epoch }, "");
     });
   }
 
@@ -44,7 +48,8 @@ export class ChatTestSocket extends EventTarget {
     const frame = JSON.parse(text) as Frame;
     this.frames.push(frame);
     if (!frame.method) {
-      if (this.conversation?.open_requests) this.conversation.open_requests = this.conversation.open_requests.filter((request) => request.id !== frame.id);
+      for (const conversation of ChatTestSocket.conversations.values()) if (conversation.open_requests)
+        conversation.open_requests = conversation.open_requests.filter((request) => request.id !== frame.id);
       return;
     }
     queueMicrotask(() => this.answer(frame));
@@ -52,6 +57,7 @@ export class ChatTestSocket extends EventTarget {
 
   private answer(frame: Frame) {
     const p = frame.params ?? {};
+    const target = [...ChatTestSocket.conversations.values()].find(c => c.session_id === p.session_id);
     const reply = (result: unknown) => this.receive({ id: frame.id, result });
     const handlers: Record<string, () => void> = {
       "client.capabilities": () => reply({ server_requests: ["approval", "clarify", "sudo", "secret"] }),
@@ -65,6 +71,7 @@ export class ChatTestSocket extends EventTarget {
         const n = ++ChatTestSocket.next;
         this.conversation = { session_id: "live-" + n, stored_session_id: "stored-" + n, messages: [], info: { model: "test-model", profile_name: String(p.profile) }, running: false };
         ChatTestSocket.conversations.set(this.conversation.stored_session_id, this.conversation);
+        this.attached.add(this.conversation.session_id);
         reply(this.conversation);
       },
       "session.resume": () => {
@@ -73,24 +80,37 @@ export class ChatTestSocket extends EventTarget {
           this.receive({ id: frame.id, error: { code: 4007, message: "session not found" } }); return;
         }
         this.conversation = stored;
+        this.attached.add(stored.session_id);
         reply(stored);
+      },
+      "session.activate": () => {
+        if (!target) { this.receive({ id: frame.id, error: { code: 4007, message: "runtime not found" } }); return; }
+        this.conversation = target;
+        this.attached.add(target.session_id);
+        reply({ ...target, messages: p.omit_messages ? [] : target.messages, messages_omitted: !!p.omit_messages });
       },
       "prompt.submit": () => {
         if (ChatTestSocket.rejectNext) {
           ChatTestSocket.rejectNext = false;
           this.receive({ id: frame.id, error: { code: 4090, message: "Request refused" } }); return;
         }
-        this.conversation!.messages.push({ role: "user", text: String(p.text) });
-        this.conversation!.running = true;
+        target!.messages.push({ role: "user", text: String(p.text) });
+        target!.running = true;
         if (ChatTestSocket.loseNextAck) {
           ChatTestSocket.loseNextAck = false;
           this.close(); return;
         }
         reply({ status: "streaming" });
-        this.event("message.start");
+        this.event("message.start", {}, target!.session_id);
       },
+      "image.attach": () => reply({ attached: true }),
+      "image.detach": () => reply({ detached: true }),
       "session.interrupt": () => reply({ status: "interrupted", interrupted: true }),
-      "session.events.since": () => reply({ events: [], open_requests: this.conversation?.open_requests ?? [], epoch: "test" }),
+      "session.events.since": () => {
+        const events = ChatTestSocket.events.get(String(p.session_id)) ?? [];
+        reply({ events: events.filter(event => Number(event.seq) > Number(p.last_seen || 0)), open_requests: target?.open_requests ?? [], epoch: ChatTestSocket.epoch,
+          latest_seq: events.length, truncated: ChatTestSocket.replayTruncated, count: events.length });
+      },
     };
     handlers[frame.method!]?.();
   }
@@ -100,17 +120,21 @@ export class ChatTestSocket extends EventTarget {
   }
 
   event(type: string, payload: Record<string, unknown> = {}, sessionId = this.conversation?.session_id ?? "") {
-    this.receive({ method: "event", params: { type, payload, session_id: sessionId } });
+    const events = ChatTestSocket.events.get(sessionId) ?? [];
+    const event = { type, payload, session_id: sessionId, ...(sessionId ? { seq: events.length + 1 } : {}) };
+    if (sessionId) { events.push(event); ChatTestSocket.events.set(sessionId, events); }
+    this.receive({ method: "event", params: event });
   }
 
   request(id: string, method: string, params: Record<string, unknown> = {}) {
     this.receive({ id, method, params: { session_id: this.conversation?.session_id, ...params } });
   }
 
-  finish(text: string, status = "complete") {
-    this.conversation!.running = false;
-    this.conversation!.messages.push({ role: "assistant", text });
-    this.event("message.complete", { text, status });
+  finish(text: string, status = "complete", sessionId = this.conversation?.session_id) {
+    const conversation = [...ChatTestSocket.conversations.values()].find(c => c.session_id === sessionId)!;
+    conversation.running = false;
+    conversation.messages.push({ role: "assistant", text });
+    this.event("message.complete", { text, status }, sessionId);
   }
 
   close() {
@@ -122,7 +146,7 @@ export class ChatTestSocket extends EventTarget {
   static reset() {
     ChatTestSocket.instances = [];
     ChatTestSocket.conversations = new Map();
-    ChatTestSocket.next = 0;
+    ChatTestSocket.next = 0; ChatTestSocket.events = new Map(); ChatTestSocket.epoch = "test"; ChatTestSocket.replayTruncated = false;
     ChatTestSocket.rejectNext = ChatTestSocket.loseNextAck = false;
   }
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { useBlocker } from "react-router";
+import { useBlocker, useLocation } from "react-router";
 import { flushSync } from "react-dom";
 import { Button } from "@nous-research/ui/ui/components/button";
 import { Modal } from "@/components/Modal";
@@ -10,6 +10,7 @@ import { UnsavedChangesContext, type DraftState } from "./unsaved-changes-contex
 
 /** One router blocker owns all editor guards; profile changes are confirmed before retargeting writes. */
 export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
+  const location = useLocation();
   const drafts = useRef(new Map<string, DraftState>());
   const bypass = useRef(false);
   const nativeCancel = useRef<(() => void) | null>(null);
@@ -40,11 +41,20 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
 
   const blocker = useBlocker(({ currentLocation, nextLocation }) => {
     if (bypass.current || !drafts.current.size) return false;
-    // Query-only UI changes are safe; a profile change remounts the editor.
-    return currentLocation.pathname !== nextLocation.pathname ||
-      new URLSearchParams(currentLocation.search).get("profile") !==
-      new URLSearchParams(nextLocation.search).get("profile");
+    const currentProfile = new URLSearchParams(currentLocation.search).get("profile") ?? "";
+    const nextProfile = new URLSearchParams(nextLocation.search).get("profile");
+    // The profile owner reasserts its query after a bare sidebar link; that is not a replacement.
+    return [...drafts.current.values()].some(draft =>
+      (nextProfile !== null && nextProfile !== (draft.profileScope ?? currentProfile)) ||
+      (currentLocation.pathname !== nextLocation.pathname && !draft.retainOnRouteChange));
   });
+  const nextProfile = blocker.state === "blocked" ? new URLSearchParams(blocker.location.search).get("profile") : null;
+  const currentProfile = new URLSearchParams(location.search).get("profile") ?? "";
+  const routeDrafts = [...drafts.current.values()].filter(draft =>
+    (nextProfile !== null && nextProfile !== (draft.profileScope ?? currentProfile)) || !draft.retainOnRouteChange);
+  const departure = blocker.state === "blocked" && pending === null
+    ? { dirty: routeDrafts.some(draft => draft.dirty), busy: routeDrafts.some(draft => draft.busy) }
+    : state;
   const blockerRef = useRef(blocker);
   useEffect(() => { blockerRef.current = blocker; }, [blocker]);
 
@@ -77,8 +87,8 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
   }, [state.dirty, state.busy]);
 
   useEffect(() => {
-    if (blocker.state === "blocked" && !state.dirty && !state.busy) blocker.proceed();
-  }, [blocker, state.dirty, state.busy]);
+    if (blocker.state === "blocked" && !departure.dirty && !departure.busy) blocker.proceed();
+  }, [blocker, departure.dirty, departure.busy]);
 
   const cancel = () => {
     nativeCancel.current?.();
@@ -87,7 +97,7 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
     if (blocker.state === "blocked") blocker.reset();
   };
   const discard = () => {
-    if (state.busy) return;
+    if (departure.busy) return;
     setPending(null);
     if (nativeCancel.current && pending) {
       nativeCancel.current = null;
@@ -108,14 +118,14 @@ export function UnsavedChangesProvider({ children }: { children: ReactNode }) {
       {children}
       <Modal open={nativeLeaving || pending !== null || blocker.state === "blocked"} onClose={cancel}
         closeDisabled={nativeLeaving}
-        title={nativeLeaving ? t.common.loading : state.busy ? t.common.saving : copy.unsavedTitle}
+        title={nativeLeaving ? t.common.loading : departure.busy ? t.common.saving : copy.unsavedTitle}
         size="sm" zIndex={300} showCloseButton={false}
         footer={nativeLeaving ? undefined : <>
           <Button data-autofocus outlined onClick={cancel}>{copy.keepEditing}</Button>
-          {!state.busy && <Button destructive onClick={discard}>{copy.discardChanges}</Button>}
+          {!departure.busy && <Button destructive onClick={discard}>{copy.discardChanges}</Button>}
         </>}
       >
-        <p className="text-sm text-muted-foreground">{nativeLeaving ? t.common.loading : state.busy ? copy.waitForSave : copy.unsavedDescription}</p>
+        <p className="text-sm text-muted-foreground">{nativeLeaving ? t.common.loading : departure.busy ? copy.waitForSave : copy.unsavedDescription}</p>
       </Modal>
     </UnsavedChangesContext.Provider>
   );

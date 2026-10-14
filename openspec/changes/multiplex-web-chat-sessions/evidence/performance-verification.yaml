@@ -1,0 +1,61 @@
+scope:
+  change: multiplex-web-chat-sessions
+  stage: apply
+  risk: strict
+  date: 2026-10-14
+  fingerprint: "sha256:f88938a300a687dfaec367384cb9fc6c84de868568ed261f011d3e7922a43d60"
+  fingerprint_algorithm: "sorted relative path + LF + raw file bytes, concatenated"
+  files:
+    - README.web-chat.md
+    - openspec/changes/multiplex-web-chat-sessions/design.md
+    - openspec/changes/multiplex-web-chat-sessions/tasks.md
+    - src/lib/gatewayClient.test.ts
+    - src/lib/gatewayClient.ts
+    - src/lib/web-chat-cache.test.ts
+    - src/lib/web-chat-cache.ts
+    - src/lib/web-chat-controller.ts
+    - src/lib/web-chat-performance.test.ts
+    - src/lib/web-chat-workspace-recovery.ts
+    - src/lib/web-chat-workspace.ts
+evidence:
+  - check: Regression tests before the fixes
+    result: fail
+    summary: "Observed missing replay forwarding, 804 unchanged-history reads and retained body after closing a running tab."
+  - check: pnpm exec tsc -b --pretty false
+    result: pass
+    summary: "No type diagnostics after restoring the replay constructor option."
+  - check: pnpm exec vitest run src/lib/web-chat src/pages/WebChatPage.test.tsx src/hooks/useWebChatImages.test.tsx src/lib/gatewayClient.test.ts
+    result: pass
+    summary: "14 test files, 48 tests passed. Includes real shared-channel replay behavior and wire streaming/budgets/request lifecycle."
+  - check: pnpm exec vite build --outDir node_modules/.tmp/web-chat-multiplex-build
+    result: pass
+    summary: "Production build succeeded, output inside web temporary directory."
+  - check: openspec validate multiplex-web-chat-sessions --type change --strict --json --no-interactive
+    result: pass
+    summary: "Valid change, zero issues."
+  - check: git diff --check
+    result: pass
+    summary: "No whitespace diagnostics."
+  - check: Same-size local projection serialization probe
+    result: pass
+    summary: "5 conversations with initial 100 rows of 1024 characters. Immediate delta, delayed publication and active delta while another session buffers 128 events all perform zero application JSON serialization."
+measurements:
+  normal_delta_stringify_calls: { before: 8, after: 0 }
+  delayed_publication_stringify_calls: { before: 13, after: 0 }
+  delayed_publication_history_stringify_calls: { before: 10, after: 0 }
+  delayed_publication_history_json_characters: { before: 1064714, after: 0 }
+  active_delta_during_other_recovery_stringify_calls: { before: 8, after: 0 }
+  after_summary_notifications: 0
+  after_retained_histories: 5
+  after_estimated_history_bytes: 1076838
+  after_estimated_buffer_bytes: 289536
+limitations:
+  - The counters cover local projection work, excluding required wire JSON-RPC encoding/decoding and low-frequency formatted tool output.
+  - Estimated content/reference bytes are not exact heap, RSS or RPC decode peaks.
+  - Payloads and projected rows/arrays must be updated immutably for identity caches to remain valid.
+  - Closing a view invalidates its transcript cache; reopening performs full existing-API recovery.
+  - Real deployment, native Tauri and fixed-device browser latency/CPU/heap acceptance were not run in this slice.
+invalidates_when:
+  - Listed source/test/document files change.
+  - Retention estimates, buffer/request lifecycle or shared replay semantics change.
+  - The workspace scope, restoration assumptions or server protocol change.

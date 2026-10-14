@@ -22,10 +22,15 @@ export interface WebChatUnsentTurn {
   text: string;
   files?: File[];
   error?: string;
+  uncertain?: boolean;
 }
 
 export interface WebChatState {
   connection: ConnectionState;
+  historyTruncated?: boolean;
+  creationUncertain?: boolean;
+  modelConfirmation?: { provider: string; model: string; message: string; sessionId: string } | null;
+  view?: { details: Record<string, boolean>; subagent?: string | null };
   loading: boolean;
   busy: boolean;
   submitting: boolean;

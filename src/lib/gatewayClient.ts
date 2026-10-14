@@ -27,8 +27,9 @@ import { maybeReloadForLoopbackWsAuthFailure } from "@/lib/dashboard-auth-reload
 export type { ConnectionState, GatewayEvent, GatewayEventName };
 
 export class GatewayClient extends JsonRpcGatewayClient {
-  constructor() {
+  constructor(options: { replay?: boolean } = {}) {
     super({
+      replay: options.replay,
       closedErrorMessage: "WebSocket closed",
       connectErrorMessage: "WebSocket connection failed",
       notConnectedErrorMessage: "gateway not connected",

@@ -1,0 +1,44 @@
+scope:
+  change: multiplex-web-chat-sessions
+  stage: apply
+  risk: strict
+  files:
+    - src/App.tsx
+    - src/contexts/WebChatWorkspaceProvider.tsx
+    - src/contexts/web-chat-workspace-context.ts
+    - src/contexts/UnsavedChangesProvider.tsx
+    - src/contexts/unsaved-changes-context.ts
+    - src/hooks/useUnsavedChanges.ts
+    - src/hooks/useWebChat.ts
+    - src/hooks/useWebChatImages.ts
+    - src/lib/web-chat-drafts.ts
+    - src/lib/web-chat-persistence.ts
+    - src/lib/web-chat-workspace.ts
+    - src/lib/web-chat-workspace.test.ts
+    - src/pages/WebChatPage.tsx
+    - src/pages/WebChatPage.test.tsx
+    - src/test/editor-test-utils.tsx
+  fingerprint: "cbaceffd30b2cd2d4fe09f268c20634f5991ec90a4a29b314847ff08ce7a811d"
+evidence:
+  - check: "pnpm exec vitest run src/lib/web-chat src/pages/WebChatPage.test.tsx src/hooks/useWebChatImages.test.tsx src/lib/gatewayClient.test.ts src/pages/ConfigPage.test.tsx src/pages/SessionsPage.test.tsx src/pages/ChatPage.test.tsx src/pages/FilesPage.test.tsx"
+    result: pass
+    summary: "18 files, 70 tests; route retention, bounded refresh recovery and editor regressions"
+  - check: "pnpm exec tsc -b --pretty false"
+    result: pass
+    summary: "TypeScript project check"
+  - check: "pnpm exec vite build --outDir node_modules/.tmp/web-chat-multiplex-build"
+    result: pass
+    summary: "Production build inside web"
+  - check: "openspec validate multiplex-web-chat-sessions --strict"
+    result: pass
+    summary: "Updated lifecycle and refresh specifications"
+  - check: "git diff --check"
+    result: pass
+    summary: "No whitespace errors"
+  - check: "Actual deployment, native lifecycle and browser p95/CPU/heap"
+    result: not-run
+    summary: "Fixture and DOM evidence do not establish deployed behavior"
+invalidates_when:
+  - "Listed code or tests change"
+  - "Router/profile ownership, storage schema or shared client behavior changes"
+  - "Relevant build configuration or dependencies change"

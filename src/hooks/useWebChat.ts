@@ -1,26 +1,12 @@
-import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { HERMES_BASE_PATH } from "@/lib/api";
-import { WebChatController } from "@/lib/web-chat-controller";
+import { useContext, useSyncExternalStore } from "react";
+import { WebChatWorkspaceContext } from "@/contexts/web-chat-workspace-context";
 
-export function useWebChat(profile: string) {
-  const controller = useMemo(() => {
-    const key = "hermes-web-chat:" + window.location.origin + HERMES_BASE_PATH + ":" + profile;
-    return new WebChatController({
-      profile,
-      restore: () => {
-        try { return sessionStorage.getItem(key); }
-        catch { return null; } // Storage can be disabled; server history still works.
-      },
-      remember: (id) => {
-        try { sessionStorage.setItem(key, id); }
-        catch { /* Private browsing may disallow persistence. */ }
-      },
-    });
-  }, [profile]);
+export function useWebChat() {
+  const owner = useContext(WebChatWorkspaceContext);
+  if (!owner) throw new Error("Web Chat requires a workspace provider");
+  const { workspace, drafts } = owner;
+  const summary = useSyncExternalStore(workspace.subscribe, workspace.getSnapshot);
+  const controller = summary.controller;
   const state = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
-  useEffect(() => {
-    void controller.start();
-    return controller.stop;
-  }, [controller]);
-  return { state, controller };
+  return { state, controller, workspace, summary, drafts };
 }

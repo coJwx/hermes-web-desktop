@@ -52,7 +52,7 @@ export function MessageRow({ message, copy, profile = "" }: MessageRowProps) {
         {message.status === "interrupted" && <span>{copy.interrupted}</span>}
         {message.status === "error" && <span className="text-destructive">{copy.failed}</span>}
       </div>
-      {message.reasoning && <details className="mb-3 rounded-lg border border-current/10 px-3 py-2 text-text-secondary">
+      {message.reasoning && <details data-chat-detail={message.id + ":reasoning"} className="mb-3 rounded-lg border border-current/10 px-3 py-2 text-text-secondary">
         <summary className="cursor-pointer text-xs">{copy.reasoning}</summary>
         <p className="mt-2 whitespace-pre-wrap break-words text-xs leading-relaxed">{message.reasoning}</p>
       </details>}

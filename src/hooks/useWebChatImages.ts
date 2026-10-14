@@ -1,43 +1,19 @@
-import { useEffect, useRef, useState } from "react";
-import { imageValidationError, type DraftChatImage } from "@/lib/web-chat-images";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { WebChatDrafts } from "@/lib/web-chat-drafts";
 import type { WebChatCopy } from "@/lib/web-chat-copy";
 
-/** Local image drafts are isolated by profile/conversation and never enter the server queue before Send. */
-export function useWebChatImages(scope: string, copy: WebChatCopy) {
-  const [drafts, setDrafts] = useState<Record<string, DraftChatImage[]>>({});
-  const [errors, setErrors] = useState<Record<string, string | null>>({});
-  const urls = useRef(new Set<string>());
-  const nextId = useRef(0);
-
-  useEffect(() => {
-    const owned = urls.current;
-    return () => { for (const url of owned) URL.revokeObjectURL(url); owned.clear(); };
-  }, []);
-
-  const add = (files: File[]) => {
-    const added: DraftChatImage[] = [];
-    const invalid: string[] = [];
-    for (const file of files) {
-      const error = imageValidationError(file);
-      if (error) { invalid.push(file.name + ": " + copy[error]); continue; }
-      const previewUrl = URL.createObjectURL(file);
-      urls.current.add(previewUrl);
-      added.push({ id: "image:" + ++nextId.current, file, previewUrl });
-    }
-    setDrafts((current) => ({ ...current, [scope]: [...(current[scope] || []), ...added] }));
-    setErrors((current) => ({ ...current, [scope]: invalid.length ? invalid.join("\n") : null }));
-  };
-
-  const remove = (ids: string[]) => {
-    const removed = new Set(ids);
-    for (const image of drafts[scope] || []) {
-      if (removed.has(image.id)) { URL.revokeObjectURL(image.previewUrl); urls.current.delete(image.previewUrl); }
-    }
-    setDrafts((current) => ({ ...current, [scope]: (current[scope] || []).filter((image) => !removed.has(image.id)) }));
-  };
-
+/** A standalone caller owns its drafts; the chat composer borrows the workspace owner. */
+export function useWebChatImages(scope: string, copy: WebChatCopy, owner?: WebChatDrafts) {
+  const [local] = useState(() => new WebChatDrafts());
+  const store = owner ?? local;
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  useEffect(() => owner ? undefined : local.dispose, [owner, local]);
   return {
-    images: drafts[scope] || [], error: errors[scope] || null, add, remove,
-    setError: (error: string | null) => setErrors((current) => ({ ...current, [scope]: error })),
+    retainScopes: store.retainScopes, moveScope: store.moveScope,
+    dirty: store.dirty,
+    images: snapshot.drafts[scope] || [], error: snapshot.errors[scope] || null,
+    add: (files: File[]) => store.add(scope, files, copy),
+    remove: (ids: string[]) => store.remove(scope, ids),
+    setError: (error: string | null) => store.setError(scope, error),
   };
 }

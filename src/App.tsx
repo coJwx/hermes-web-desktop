@@ -64,6 +64,7 @@ import { SidebarTooltip } from "@/components/SidebarTooltip";
 import { useBelowBreakpoint } from "@nous-research/ui/hooks/use-below-breakpoint";
 import { useSidebarStatus } from "@/hooks/useSidebarStatus";
 import { PageHeaderProvider } from "@/contexts/PageHeaderProvider";
+import { WebChatWorkspaceProvider } from "@/contexts/WebChatWorkspaceProvider";
 import { ProfileProvider } from "@/contexts/ProfileProvider";
 import { useProfileScope } from "@/contexts/useProfileScope";
 import { ProfileSwitcher } from "@/components/ProfileSwitcher";
@@ -448,12 +449,17 @@ export default function App() {
     [manifests],
   );
 
+  const webChatOverriddenByPlugin = useMemo(
+    () => manifests.some(m => m.tab.override === "/web-chat"), [manifests],
+  );
+
   const builtinRoutes = useMemo(
     () => ({
       ...BUILTIN_ROUTES_CORE,
+      "/web-chat": pluginsLoading ? RouteFallback : WebChatPage,
       ...(embeddedChat ? { "/chat": ChatRouteSink } : {}),
     }),
-    [embeddedChat],
+    [embeddedChat, pluginsLoading],
   );
 
   const builtinNav = useMemo(() => {
@@ -748,6 +754,7 @@ export default function App() {
                 )}
               >
                 <ProfileKeyedRoutes>
+                  <WebChatWorkspaceProvider active={normalizedPath === "/web-chat" && !pluginsLoading && !webChatOverriddenByPlugin}>
                   <Suspense fallback={<RouteFallback />}>
                     <Routes>
                       {routes.map(({ key, path, element }) => (
@@ -761,6 +768,7 @@ export default function App() {
                       />
                     </Routes>
                   </Suspense>
+                  </WebChatWorkspaceProvider>
                 </ProfileKeyedRoutes>
 
                 {embeddedChat &&

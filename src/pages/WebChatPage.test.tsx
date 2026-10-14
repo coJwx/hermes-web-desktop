@@ -2,8 +2,9 @@
 import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebChatPage from "./WebChatPage";
+import { webChatPersistence } from "@/lib/web-chat-persistence";
 import { ChatTestSocket } from "@/test/web-chat-server";
-import { input, json, mountEditor, press, profileResponse, setupEditorDOM } from "@/test/editor-test-utils";
+import { input, json, mountEditor, press, profileResponse, setupEditorDOM, unloadPrevented } from "@/test/editor-test-utils";
 
 let app: Awaited<ReturnType<typeof mountEditor>> | undefined;
 let tickets: number;
@@ -44,13 +45,14 @@ afterEach(async () => {
   app = undefined;
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
   delete window.__HERMES_SESSION_TOKEN__;
   delete window.__HERMES_AUTH_REQUIRED__;
 });
 
 describe("Web Chat over the real JSON-RPC client", () => {
   it("streams scoped turns, answers human requests safely, and stops only at the terminal event", async () => {
-    app = await mountEditor(<WebChatPage />);
+    app = await mountEditor(<WebChatPage />, undefined, true);
     await settle();
     expect(latest().url).toContain("/api/ws?token=test-session-token");
     expect(latest().frames.find((frame) => frame.method === "session.create")?.params?.profile).toBe("A");
@@ -118,7 +120,7 @@ describe("Web Chat over the real JSON-RPC client", () => {
 
   it("uses fresh login tickets and restores A→B→A without resending ambiguous turns or losing pending approvals", async () => {
     window.__HERMES_AUTH_REQUIRED__ = true;
-    app = await mountEditor(<WebChatPage />);
+    app = await mountEditor(<WebChatPage />, undefined, true);
     await settle();
     const a = latest().conversation!;
     expect(latest().url).toContain("ticket=ticket-1");
@@ -171,7 +173,7 @@ describe("Web Chat over the real JSON-RPC client", () => {
     };
     await chooseTab(a.stored_session_id);
     expect(document.querySelector('[role="log"]')?.textContent).toContain("Recovered reply");
-    expect(composer().value).toBe("");
+    expect(composer().value).toBe("Possibly accepted");
     await chooseTab(freshId);
     expect(composer().value).toBe("Draft for the new conversation");
   });
@@ -179,7 +181,7 @@ describe("Web Chat over the real JSON-RPC client", () => {
   it("opens tabs from the header picker only after a choice and excludes occupied conversations from both pickers", async () => {
     const history = seedSession("history", "Existing discussion");
     seedSession("other", "Another discussion");
-    app = await mountEditor(<WebChatPage />);
+    app = await mountEditor(<WebChatPage />, undefined, true);
     await settle();
     const originalId = latest().conversation!.stored_session_id;
     await input(composer(), "Original discussion");
@@ -203,6 +205,7 @@ describe("Web Chat over the real JSON-RPC client", () => {
     await settle();
     expect(tabButtons().map((tab) => tab.dataset.sessionId)).toEqual([originalId, history.stored_session_id]);
     expect(activeTab().textContent).toBe("Existing discussion");
+    expect(document.querySelector('[role="log"]')?.textContent).toContain("Reply to Existing discussion");
     expect(latest().frames.find((frame) => frame.method === "session.resume")?.params?.session_id).toBe(history.stored_session_id);
 
     await press("Open conversation tab");
@@ -251,9 +254,9 @@ describe("Web Chat over the real JSON-RPC client", () => {
     expect(ChatTestSocket.conversations.has(history.stored_session_id)).toBe(true);
   });
 
-  it("commits successful tab changes atomically, keeps drafts on failures, and blocks navigation while a request is pending", async () => {
+  it("commits successful tab changes atomically and preserves background requests, drafts and delayed acknowledgements", async () => {
     const history = seedSession("history", "Existing discussion");
-    app = await mountEditor(<WebChatPage />);
+    app = await mountEditor(<WebChatPage />, undefined, true);
     await settle();
     const original = latest().conversation!;
     await input(composer(), "Repeated question");
@@ -298,19 +301,16 @@ describe("Web Chat over the real JSON-RPC client", () => {
       latest().event("message.start");
       latest().request("pending", "approval", { command: "continue", choices: ["once", "deny"] });
     });
-    const resumeCount = ChatTestSocket.instances.flatMap((socket) => socket.frames.filter((frame) => frame.method === "session.resume")).length;
-    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.click(); });
-    await press("Open conversation tab");
-    expect(tabMenu()).toBeNull();
-    expect(activeTab().dataset.sessionId).toBe(history.stored_session_id);
-    expect(ChatTestSocket.instances.flatMap((socket) => socket.frames.filter((frame) => frame.method === "session.resume"))).toHaveLength(resumeCount);
-    await press("Allow once");
-    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.click(); });
-    await settle();
+    const resumeCount = ChatTestSocket.instances.flatMap(socket => socket.frames.filter(frame => frame.method === "session.resume")).length;
+    await act(async () => { tabButtons().find(tab => tab.dataset.sessionId === original.stored_session_id)!.click(); });
+    expect(activeTab().dataset.sessionId).toBe(original.stored_session_id);
+    expect(document.body.textContent).not.toContain("Approval required");
     expect(composer().value).toBe("Repeated question");
-    await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === history.stored_session_id)!.click(); });
-    await settle();
+    expect(ChatTestSocket.instances.flatMap(socket => socket.frames.filter(frame => frame.method === "session.resume"))).toHaveLength(resumeCount);
+    await act(async () => { tabButtons().find(tab => tab.dataset.sessionId === history.stored_session_id)!.click(); });
     expect(composer().value).toBe("History draft");
+    expect(document.body.textContent).toContain("Approval required");
+    await press("Allow once");
     expect(prompts()).toHaveLength(1);
     expect(latest().frames.find((frame) => frame.method === "session.resume")?.params?.close_on_disconnect).toBe(false);
     await act(async () => { latest().finish("History reply"); });
@@ -327,11 +327,167 @@ describe("Web Chat over the real JSON-RPC client", () => {
     await press("Open conversation tab");
     await act(async () => { tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.click(); });
     expect(tabMenu()).toBeNull();
-    expect(activeTab().dataset.sessionId).toBe(history.stored_session_id);
+    expect(activeTab().dataset.sessionId).toBe(original.stored_session_id);
+    expect(composer().value).toBe("Repeated question");
     await act(async () => {
       promptAck!.socket.receive({ id: promptAck!.id, result: { status: "streaming" } });
     });
+    expect(composer().value).toBe("Repeated question");
+    await act(async () => { tabButtons().find(tab => tab.dataset.sessionId === history.stored_session_id)!.click(); });
     expect(composer().value).toBe("");
     expect(tabButtons().find((tab) => tab.dataset.sessionId === original.stored_session_id)!.disabled).toBe(false);
   });
+
+  it("aggregates hidden drafts in the leave guard and keeps the workspace when departure is cancelled", async () => {
+    app = await mountEditor(<WebChatPage />, undefined, true); await settle();
+    await input(composer(), "Protected draft");
+    await press("New chat"); await settle();
+    const count = ChatTestSocket.instances.length;
+    await press("Switch profile");
+    expect(document.body.textContent).toContain("Discard unsaved changes?");
+    await press("Keep editing");
+    expect(ChatTestSocket.instances).toHaveLength(count);
+    expect(tabButtons()).toHaveLength(2);
+    await act(async () => { tabButtons()[0].click(); });
+    expect(composer().value).toBe("Protected draft");
+    await press("Switch profile"); await press("Discard and continue"); await settle();
+    expect(latest().conversation!.info.profile_name).toBe("B");
+    expect(composer().value).toBe("");
+    expect(ChatTestSocket.instances[count - 1].readyState).toBe(3);
+  });
+
+  it("retains four tabs, drafts, images and view state across route departure while background requests keep working", async () => {
+    const revoked: string[] = [];
+    vi.stubGlobal("URL", class extends URL {
+      static createObjectURL() { return "blob:retained-draft"; }
+      static revokeObjectURL(url: string) { revoked.push(url); }
+    });
+    app = await mountEditor(<WebChatPage />, undefined, true); await settle();
+    const first = latest().conversation!;
+    await input(composer(), "First tab draft");
+    for (let i = 0; i < 3; i++) { await press("New chat"); await settle(); }
+    const last = latest().conversation!;
+    await input(composer(), "Question in fourth tab"); await press("Send");
+    await act(async () => {
+      latest().event("reasoning.delta", { text: "Preserved reasoning" }, last.session_id);
+      latest().finish("Fourth tab answer", "complete", last.session_id);
+    });
+    await input(composer(), "Fourth tab draft");
+    const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(picker, "files", { configurable: true, value: [new File(["x"], "retained.png", { type: "image/png" })] });
+    await act(async () => { picker.dispatchEvent(new Event("change", { bubbles: true })); });
+    const detail = document.querySelector<HTMLDetailsElement>('details[data-chat-detail]')!;
+    expect(detail).not.toBeNull();
+    await act(async () => { detail.open = true; detail.dispatchEvent(new Event("toggle")); });
+    const scroll = document.querySelector<HTMLDivElement>(".overflow-y-auto.overscroll-contain")!;
+    Object.defineProperties(scroll, { scrollHeight: { configurable: true, value: 2000 }, clientHeight: { configurable: true, value: 300 } });
+    await act(async () => { scroll.scrollTop = 123; scroll.dispatchEvent(new Event("scroll", { bubbles: true })); composer().setSelectionRange(4, 4); });
+    const ids = tabButtons().map(tab => tab.dataset.sessionId);
+    const before = latest().frames.filter(frame => ["session.resume", "session.activate", "session.create"].includes(frame.method || "")).length;
+    await press("Leave editor"); await settle();
+    expect(document.body.textContent).toContain("Other page");
+    expect(document.body.textContent).not.toContain("Discard unsaved changes?");
+    expect(tabButtons()).toHaveLength(0); expect(composer()).toBeNull();
+    expect(latest().readyState).toBe(1); expect(revoked).toHaveLength(0);
+    expect(unloadPrevented()).toBe(true);
+    await act(async () => {
+      latest().event("message.start", {}, first.session_id);
+      latest().finish("Arrived while viewing files", "complete", first.session_id);
+      latest().request("route-approval", "approval", { session_id: first.session_id, command: "Background approval", choices: ["once", "deny"] });
+      await app!.router.navigate("/edit");
+    });
+    await settle();
+    // View restoration is scheduled after the recreated DOM has been committed.
+    await act(async () => { await new Promise<void>(resolve => requestAnimationFrame(() => resolve())); });
+    expect(ChatTestSocket.instances).toHaveLength(1);
+    expect(tabButtons().map(tab => tab.dataset.sessionId)).toEqual(ids);
+    expect(activeTab().dataset.sessionId).toBe(last.stored_session_id);
+    expect(composer().value).toBe("Fourth tab draft"); expect(composer().selectionStart).toBe(4);
+    expect(document.querySelector<HTMLDivElement>(".overflow-y-auto.overscroll-contain")!.scrollTop).toBe(123);
+    expect(document.querySelector<HTMLDetailsElement>('details[data-chat-detail]')!.open).toBe(true);
+    expect(document.querySelector('img[src="blob:retained-draft"]')).not.toBeNull();
+    expect(latest().frames.filter(frame => ["session.resume", "session.activate", "session.create"].includes(frame.method || ""))).toHaveLength(before);
+    await act(async () => { tabButtons()[0].click(); }); await settle();
+    expect(composer().value).toBe("First tab draft");
+    expect(document.querySelector('[role="log"]')?.textContent).toContain("Arrived while viewing files");
+    expect(document.body.textContent).toContain("Background approval");
+    await press("Deny");
+    expect(latest().frames.find(frame => frame.id === "route-approval")?.result).toEqual({ choice: "deny" });
+    await press("Leave editor"); await settle();
+    await press("Switch profile");
+    expect(document.body.textContent).toContain("Discard unsaved changes?");
+    await press("Keep editing"); expect(latest().readyState).toBe(1);
+    await press("Switch profile"); await press("Discard and continue"); await settle();
+    expect(ChatTestSocket.instances).toHaveLength(1); expect(latest().readyState).toBe(3);
+    expect(revoked).toEqual(["blob:retained-draft"]);
+    await act(async () => { await app!.router.navigate("/edit"); }); await settle();
+    expect(ChatTestSocket.instances).toHaveLength(2); expect(tabButtons()).toHaveLength(1);
+    expect(composer().value).toBe(""); expect(latest().conversation!.info.profile_name).toBe("B");
+  });
+
+  it("lazily restores only scoped tab identities after reload with bounded attachment concurrency and retryable failures", async () => {
+    app = await mountEditor(<WebChatPage />, ["/other?profile=A"], true); await settle();
+    expect(ChatTestSocket.instances).toHaveLength(0);
+    await act(async () => { await app!.router.navigate("/edit?profile=A"); }); await settle();
+    for (let i = 0; i < 3; i++) { await press("New chat"); await settle(); }
+    const ids = tabButtons().map(tab => tab.dataset.sessionId!);
+    await act(async () => { tabButtons()[1].click(); }); await settle();
+    await input(composer(), "Memory-only draft");
+    const key = Object.keys(sessionStorage).find(key => key.endsWith(":A:tabs:v1"))!;
+    expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual({ version: 1, sessions: ids, activeSessionId: ids[1] });
+    expect(Object.values(sessionStorage).join(" ")).not.toContain("Memory-only draft");
+    await app.unmount(); app = undefined;
+    // Duplicate identities are sanitized; a deleted conversation remains an explicit local error.
+    sessionStorage.setItem(key, JSON.stringify({ version: 1, sessions: [ids[0], "deleted", ...ids.slice(1), ids[0]], activeSessionId: ids[1] }));
+    const send = ChatTestSocket.prototype.send;
+    const held: Array<{ socket: ChatTestSocket; id: string; stored: string }> = [];
+    let inflight = 0; let peak = 0;
+    vi.spyOn(ChatTestSocket.prototype, "send").mockImplementation(function(this: ChatTestSocket, text: string) {
+      const frame = JSON.parse(text);
+      if (frame.method === "session.resume") {
+        this.frames.push(frame); inflight++; peak = Math.max(peak, inflight);
+        held.push({ socket: this, id: frame.id, stored: frame.params.session_id });
+        if (frame.params.session_id === ids[0]) this.request("refresh-approval", "approval", {
+          session_id: ChatTestSocket.conversations.get(ids[0])!.session_id, command: "Restored approval", choices: ["once", "deny"],
+        });
+      } else send.call(this, text);
+    });
+    app = await mountEditor(<WebChatPage />, undefined, true); await settle();
+    expect(held).toHaveLength(2);
+    expect(tabButtons().map(tab => tab.dataset.sessionId)).toEqual([ids[0], "deleted", ...ids.slice(1)]);
+    expect(activeTab().dataset.sessionId).toBe(ids[1]);
+    while (held.length) {
+      const reply = held.shift()!; inflight--;
+      const conversation = ChatTestSocket.conversations.get(reply.stored);
+      await act(async () => {
+        if (conversation) { reply.socket.conversation = conversation; reply.socket.attached.add(conversation.session_id); reply.socket.receive({ id: reply.id, result: conversation }); }
+        else reply.socket.receive({ id: reply.id, error: { code: 4007, message: "session not found" } });
+      });
+      await settle();
+    }
+    expect(peak).toBeLessThanOrEqual(2);
+    expect(ChatTestSocket.instances).toHaveLength(2);
+    expect(latest().frames.filter(frame => frame.method === "session.create")).toHaveLength(0);
+    expect(activeTab().dataset.sessionId).toBe(ids[1]); expect(composer().value).toBe("");
+    await act(async () => { tabButtons()[0].click(); }); await settle();
+    expect(document.body.textContent).toContain("Restored approval");
+    await press("Deny");
+    expect(latest().frames.find(frame => frame.id === "refresh-approval")?.result).toEqual({ choice: "deny" });
+    await act(async () => { tabButtons()[1].click(); }); await settle();
+    expect(activeTab().dataset.sessionId).toBe("deleted");
+    // Selecting the failed tab retries its existing identity without creating a replacement.
+    expect(held).toHaveLength(1);
+    await act(async () => { const reply = held.shift()!; reply.socket.receive({ id: reply.id, error: { code: 4007, message: "session not found" } }); });
+    await settle(); expect(document.querySelector('[role="alert"]')?.textContent).toContain("session not found");
+    const persistence = webChatPersistence("A");
+    const legacy = persistence.restore();
+    for (const invalid of ["{", JSON.stringify({ version: 2, sessions: ids }), JSON.stringify({ version: 1, sessions: [42] })]) {
+      sessionStorage.setItem(key, invalid);
+      expect(persistence.restoreLayout!()).toBeNull(); expect(persistence.restore()).toBe(legacy);
+    }
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new DOMException("Storage blocked"); });
+    expect(persistence.restoreLayout!()).toBeNull(); expect(persistence.restore()).toBeNull();
+
+  });
+
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@nous-research/ui/ui/components/button";
 import type { ApprovalRequestParams, ClarifyRequestParams, SecretRequestParams, SudoRequestParams, ServerRequest } from "@hermes/shared";
@@ -6,15 +6,17 @@ import type { WebChatCopy } from "@/lib/web-chat-copy";
 
 interface RequestCardProps {
   request: ServerRequest;
+  online?: boolean;
   copy: WebChatCopy;
   respond: (request: ServerRequest, result: Record<string, unknown>) => void;
 }
 
 const fieldClass = "w-full rounded-lg border border-current/20 bg-background-base px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-midground";
 
-export function RequestCard({ request, copy, respond }: RequestCardProps) {
+export function RequestCard({ request, copy, respond, online = true }: RequestCardProps) {
   const [value, setValue] = useState("");
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  useEffect(() => { setValue(""); }, [request, online]);
   const reply = (result: Record<string, unknown>) => {
     setValue("");
     respond(request, result);

@@ -25,6 +25,7 @@ import { ImagePreview } from "@/components/web-chat/ImagePreview";
 import { ModelCascader } from "@/components/web-chat/ModelCascader";
 import { SubagentPanel } from "@/components/web-chat/SubagentPanel";
 import { WEB_CHAT_MAX_RECONNECT_ATTEMPTS } from "@/lib/web-chat-reconnect";
+import { CHAT_LIMITS } from "@/lib/web-chat-cache";
 import { ConversationTabs } from "@/components/web-chat/ConversationTabs";
 
 export default function WebChatPage() {
@@ -32,25 +33,40 @@ export default function WebChatPage() {
   const copy = webChatCopy(locale);
   const { profile, currentProfile } = useProfileScope();
   const { setTitle, setAfterTitle } = usePageHeader();
-  const { state, controller } = useWebChat(profile || currentProfile);
-  const tabState = useWebChatTabs(controller, state);
+  const { state, controller, workspace, summary, drafts: draftStore } = useWebChat();
+  const scopeId = state.storedSessionId || summary.activeTabId;
+  const drafts = draftStore.text;
+  const viewStates = draftStore.views;
+  const tabState = useWebChatTabs(workspace, state);
   const { tabs, activeTabId, switching, blocked, availableSessions, selectableSessions,
     openTab: loadTab, switchTab: loadExistingTab, closeTab: removeTab, switchSession: loadSession } = tabState;
   const tabIdPrefix = useId();
   const panelId = tabIdPrefix + "-panel";
   const transcript = useMemo(() => groupChatTranscript(state.messages), [state.messages]);
-  const [draft, setDraft] = useState("");
-  const [cursor, setCursor] = useState(0);
+  const [draft, writeDraft] = useState(() => draftStore.text.get(scopeId) ?? "");
+  const draftValue = useRef(draft);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState(() => draftStore.views.get(scopeId)?.cursor ?? draft.length);
   const [composerFocused, setComposerFocused] = useState(false);
-  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const [awayFromBottom, setAwayFromBottom] = useState(() => draftStore.views.get(scopeId)?.follow === false);
   const scrollBox = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
-  const images = useWebChatImages((profile || currentProfile) + ":" + (state.storedSessionId || "new"), copy);
-  const follow = useRef(true);
-  const drafts = useRef(new Map<string, string>());
+  const images = useWebChatImages((profile || currentProfile) + ":" + (state.storedSessionId || activeTabId), copy, draftStore);
+  const follow = useRef(draftStore.views.get(scopeId)?.follow ?? true);
+  const currentSession = useRef(state.storedSessionId || activeTabId);
+  currentSession.current = state.storedSessionId || activeTabId;
+  const setDraft = useCallback((update: string | ((text: string) => string)) => {
+    const next = typeof update === "function" ? update(draftValue.current) : update;
+    const id = currentSession.current;
+    const bytes = [...drafts.entries()].reduce((sum, [key, text]) => sum + (key === id ? 0 : text.length * 2), 0) + next.length * 2;
+    if (bytes > CHAT_LIMITS.drafts) { setDraftError(copy.textDraftLimit); return; }
+    draftValue.current = next; setDraftError(null); writeDraft(next);
+    if (next) drafts.set(id, next); else drafts.delete(id);
+    draftStore.notify();
+  }, [copy.textDraftLimit, draftStore]);
   const connected = state.connection === "open";
-  const canSend = connected && !switching && !state.loading && !state.busy && !state.submitting && !state.commandBusy && !state.sendingImages && !state.switchingModel && !!state.sessionId && !state.requests.length;
+  const canSend = !summary.newWorkPaused && connected && !switching && !state.loading && !state.busy && !state.submitting && !state.commandBusy && !state.sendingImages && !state.switchingModel && !!state.sessionId && !state.requests.length && !state.modelConfirmation;
   const canAttach = !switching && !state.loading && !state.sendingImages;
   const hasContent = !!draft.trim() || !!images.images.length;
   const completion = useSlashCompletion({ value: draft, cursor, enabled: canSend && composerFocused, sessionId: state.sessionId, controller });
@@ -73,17 +89,24 @@ export default function WebChatPage() {
 
   const send = async () => {
     if (!canSend || !hasContent) return;
+    const targetId = state.storedSessionId || activeTabId;
+    const targetController = controller;
     const text = draft;
     const attachments = images.images;
     if (attachments.length && looksLikeSlashCommand(text.trim())) { images.setError(copy.imagesWithCommand); return; }
     images.setError(null);
     jumpToLatest();
     const result = looksLikeSlashCommand(text.trim())
-      ? await controller.executeCommand(text.trim(), copy)
-      : { accepted: await controller.submit(text, attachments.map((image) => image.file)) };
+      ? await targetController.executeCommand(text.trim(), copy)
+      : { accepted: await targetController.submit(text, attachments.map((image) => image.file)) };
     if (result.accepted) {
       images.remove(attachments.map((image) => image.id));
       const replacement = result.prefill ?? "";
+      if (targetId && drafts.get(targetId) === text) {
+        if (replacement) drafts.set(targetId, replacement); else drafts.delete(targetId);
+      }
+      draftStore.notify();
+      if (currentSession.current !== targetId || !input.current) return;
       completion.dismiss();
       setDraft((current) => current === text ? replacement : current);
       if (input.current) input.current.style.height = "auto";
@@ -118,59 +141,95 @@ export default function WebChatPage() {
 
   const saveDraft = useCallback((id: string | null, text: string) => {
     if (!id) return;
-    drafts.current.set(id, text);
-  }, []);
+    drafts.delete(id);
+    if (text) drafts.set(id, text); else drafts.delete(id);
+    viewStates.delete(id);
+    viewStates.set(id, { scroll: scrollBox.current?.scrollTop ?? 0, follow: follow.current, cursor: input.current?.selectionStart ?? text.length });
+    draftStore.notify();
+  }, [draftStore]);
 
   const restoreDraft = useCallback(() => {
-    const id = controller.getSnapshot().storedSessionId;
-    const text = id ? drafts.current.get(id) ?? "" : "";
-    setDraft(text);
-    setCursor(text.length);
+    const current = workspace.getSnapshot();
+    const id = current.controller.getSnapshot().storedSessionId || current.activeTabId;
+    const text = id ? drafts.get(id) ?? "" : "";
+    draftValue.current = text; writeDraft(text); setDraftError(null);
+    const view = id ? viewStates.get(id) : null;
+    setCursor(view?.cursor ?? text.length);
+    follow.current = view?.follow ?? true;
+    setAwayFromBottom(!follow.current);
     if (input.current) input.current.style.height = "auto";
-    jumpToLatest();
-  }, [controller, jumpToLatest]);
+    requestAnimationFrame(() => {
+      if (scrollBox.current) scrollBox.current.scrollTop = view?.follow === false ? view.scroll : scrollBox.current.scrollHeight;
+      input.current?.setSelectionRange(view?.cursor ?? text.length, view?.cursor ?? text.length);
+    });
+  }, [workspace, draftStore]);
+
+  useLayoutEffect(() => {
+    restoreDraft();
+    const node = scrollBox.current;
+    const composer = input.current;
+    return () => {
+      viewStates.delete(currentSession.current);
+      viewStates.set(currentSession.current, {
+        scroll: node?.scrollTop ?? 0, follow: follow.current,
+        cursor: composer?.selectionStart ?? draftValue.current.length,
+      });
+    };
+  }, [draftStore, workspace]);
 
   const switchTab = useCallback(async (id: string) => {
-    saveDraft(state.storedSessionId, draft);
+    saveDraft(state.storedSessionId || activeTabId, draft);
     if (await loadExistingTab(id)) restoreDraft();
-  }, [draft, loadExistingTab, restoreDraft, saveDraft, state.storedSessionId]);
+  }, [draft, loadExistingTab, restoreDraft, saveDraft, state.storedSessionId, activeTabId]);
 
   const openTab = useCallback(async (id?: string) => {
-    saveDraft(state.storedSessionId, draft);
+    saveDraft(state.storedSessionId || activeTabId, draft);
     if (await loadTab(id)) restoreDraft();
-  }, [draft, loadTab, restoreDraft, saveDraft, state.storedSessionId]);
+  }, [draft, loadTab, restoreDraft, saveDraft, state.storedSessionId, activeTabId]);
 
   const closeTab = useCallback(async (id: string) => {
     const active = id === activeTabId;
-    if (active) saveDraft(state.storedSessionId, draft);
+    if (active) saveDraft(state.storedSessionId || activeTabId, draft);
     if (await removeTab(id) && active) restoreDraft();
   }, [activeTabId, draft, removeTab, restoreDraft, saveDraft, state.storedSessionId]);
 
   const switchSession = async (id: string) => {
-    saveDraft(state.storedSessionId, draft);
+    saveDraft(state.storedSessionId || activeTabId, draft);
     if (await loadSession(id)) restoreDraft();
   };
 
   const headerTabs = useMemo(() => <ConversationTabs tabs={tabs} activeTabId={activeTabId} tabIdPrefix={tabIdPrefix} panelId={panelId}
     sessions={availableSessions} sessionsLoading={state.sessionsLoading} sessionsError={state.sessionsError} blocked={blocked} switching={switching}
     connected={connected} busy={state.busy} waiting={!!state.requests.length} copy={copy}
-    onSelect={switchTab} onClose={closeTab} onOpen={openTab} onRefresh={controller.refreshSessions} />,
+    onSelect={switchTab} onClose={closeTab} onOpen={openTab} onRefresh={workspace.refreshSessions} />,
   [tabs, activeTabId, tabIdPrefix, panelId, availableSessions, state.sessionsLoading, state.sessionsError, blocked, switching,
-    connected, state.busy, state.requests.length, copy, switchTab, closeTab, openTab, controller.refreshSessions]);
+    connected, state.busy, state.requests.length, copy, switchTab, closeTab, openTab, workspace.refreshSessions]);
 
-  useLayoutEffect(() => { setAfterTitle(headerTabs); }, [headerTabs, setAfterTitle]);
+  // The shell clears route slots in a layout effect before this cached view fills them again.
+  useEffect(() => { setAfterTitle(headerTabs); }, [headerTabs, setAfterTitle]);
   useEffect(() => () => setAfterTitle(null), [setAfterTitle]);
 
-  const reconnect = async () => {
-    const pendingDraft = state.busy && state.error && !connected && !state.unsentTurn
-      ? state.messages.findLast((message) => message.role === "user")?.text : null;
-    await controller.start();
-    const snap = controller.getSnapshot();
-    if (!snap.error && pendingDraft === draft && snap.messages.findLast((message) => message.role === "user")?.text === draft) {
-      setDraft("");
-      if (snap.storedSessionId) drafts.current.delete(snap.storedSessionId);
+  useLayoutEffect(() => { workspace.setDraftPresence(activeTabId, !!draft || !!images.images.length); }, [workspace, activeTabId, draft, images.images.length]);
+
+  useLayoutEffect(() => {
+    const node = scrollBox.current;
+    const save = (event: Event) => {
+      const detail = event.target as HTMLDetailsElement;
+      const view = controller.getSnapshot().view;
+      if (detail.dataset.chatDetail) controller.patchState({ view: { ...view, details: { ...view?.details, [detail.dataset.chatDetail]: detail.open } } });
+    };
+    node?.addEventListener("toggle", save, true);
+    return () => node?.removeEventListener("toggle", save, true);
+  }, [controller]);
+
+  useLayoutEffect(() => {
+    for (const detail of scrollBox.current?.querySelectorAll<HTMLDetailsElement>("details[data-chat-detail]") ?? []) {
+      const saved = state.view?.details[detail.dataset.chatDetail!];
+      if (saved !== undefined) detail.open = saved;
     }
-  };
+  }, [state.storedSessionId, state.messages.length]);
+
+  const reconnect = workspace.reconnect;
 
   return <section id={panelId} role="tabpanel" aria-labelledby={tabIdPrefix + "-" + activeTabId}
     className="relative flex min-h-0 min-w-0 flex-1 flex-col" aria-label={copy.title}>
@@ -181,11 +240,11 @@ export default function WebChatPage() {
         <span className="hidden rounded border border-current/10 px-1.5 py-0.5 lg:inline">{profile || currentProfile}</span>
       </div>
       <div className="min-w-0 flex-1 sm:max-w-xs" role="group" aria-label={copy.switchSession}
-        title={state.busy || state.commandBusy || state.sendingImages || state.switchingModel ? copy.switchBlocked : copy.switchSession}
+        title={state.submitting || state.commandBusy || state.sendingImages || state.switchingModel ? copy.switchBlocked : copy.switchSession}
         onFocusCapture={() => void controller.refreshSessions()}>
         <Select value={state.storedSessionId ?? ""}
           placeholder={state.sessionsLoading ? copy.loadingSessions : copy.switchSession}
-          disabled={blocked || state.busy}
+          disabled={blocked || state.submitting || state.commandBusy || state.sendingImages || state.switchingModel}
           className={cn(
             "min-w-0",
             "[&_button]:h-7 [&_button]:rounded-lg [&_button]:border-border [&_button]:bg-midground/5 [&_button]:px-2.5 [&_button]:text-xs",
@@ -219,6 +278,20 @@ export default function WebChatPage() {
         </Button>
       </div>
     </div>
+    {summary.error && <div role="alert" className="px-4 py-2 text-sm text-warning">{summary.error}</div>}
+    {summary.newWorkPaused && <p role="status" className="px-4 py-2 text-xs text-warning">{copy.requestPressure}</p>}
+    {summary.replayUnavailable && !summary.compatibility && <p role="status" className="px-4 py-2 text-xs text-text-secondary">{copy.conservativeRecovery}</p>}
+    {summary.compatibility && <p role="status" className="px-4 py-2 text-xs text-warning">{copy.singleSessionMode}</p>}
+    {!summary.compatibility && (state.error || summary.error) && <Button ghost size="sm" disabled={!summary.canReclaim} onClick={() => void workspace.enableCompatibility()}>{copy.useCompatibility}</Button>}
+    {!!summary.background.length && <div className="flex flex-wrap gap-2 border-b border-current/10 px-4 py-2" aria-label={locale.startsWith("zh") ? "后台任务" : "Background tasks"}>
+      {summary.background.map(tab => <Button key={tab.id} ghost size="sm" className="h-7 text-xs" onClick={async () => { saveDraft(state.storedSessionId || activeTabId, draft); await workspace.reopen(tab.id); restoreDraft(); }}>
+        {tab.waiting ? copy.waiting : copy.thinking}: {tab.title || copy.unnamed}
+      </Button>)}
+    </div>}
+    {(summary.associations >= CHAT_LIMITS.bindings || summary.error) && <div className="flex items-center gap-3 px-4 py-2 text-xs text-text-secondary">
+      <span>{summary.associations}/{CHAT_LIMITS.bindings}</span>
+      <Button ghost size="sm" disabled={!summary.canReclaim} onClick={() => void workspace.reclaim()}>{locale.startsWith("zh") ? "回收空闲连接记录" : "Reclaim idle connection records"}</Button>
+    </div>}
     {state.sessionsError && <p role="status" className="shrink-0 px-2 py-1 text-xs text-warning sm:px-4">{copy.sessionsFailed}: {state.sessionsError}</p>}
 
     <div className="relative min-h-0 flex-1">
@@ -228,6 +301,8 @@ export default function WebChatPage() {
       setAwayFromBottom(!follow.current);
     }}>
       <div className="mx-auto w-full max-w-3xl py-6 sm:py-8">
+        {state.historyTruncated && <p role="status" className="mb-4 text-xs text-text-secondary">{locale.startsWith("zh") ? "仅显示最近的消息，完整记录可在会话历史中查看。" : "Showing recent messages. Full records remain in conversation history."}</p>}
+        {tabs.find(tab => tab.id === activeTabId)?.syncing && !state.loading && <p role="status" className="mb-4 text-xs text-text-secondary">{locale.startsWith("zh") ? "正在同步会话…" : "Synchronizing conversation…"}</p>}
         {state.loading && !state.messages.length ? <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-text-secondary" aria-busy="true"><LoaderCircle className="h-4 w-4 animate-spin" />{copy.loading}</div> :
           !state.messages.length && !state.error ? <div className="flex min-h-[min(45vh,24rem)] flex-col items-center justify-center text-center">
             <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-midground/20 bg-midground/5 text-midground"><Bot className="h-6 w-6" /></div>
@@ -264,9 +339,9 @@ export default function WebChatPage() {
       <div className="mx-auto w-full max-w-3xl">
         <SubagentPanel key={state.sessionId || "new"} controller={controller} sessionId={state.sessionId} connected={connected && !state.loading}
           rows={state.subagents} error={state.subagentsError} unsupported={state.subagentsUnsupported} copy={copy} />
-        {!!state.requests.length && <div className="mb-3 max-h-[35dvh] space-y-3 overflow-y-auto">{state.requests.map((request) =>
-          <RequestCard key={request.id} request={request} copy={copy} respond={controller.respond} />)}
-        </div>}
+        {!!state.requests.length && <fieldset disabled={!connected || state.loading} className="mb-3 max-h-[35dvh] space-y-3 overflow-y-auto">{state.requests.map((request) =>
+          <fieldset key={state.sessionId + ":" + request.id} disabled={!controller.canRespond(request)}><RequestCard request={request} online={controller.canRespond(request)} copy={copy} respond={controller.respond} /></fieldset>)}
+        </fieldset>}
         {state.reconnectCountdown !== null && (
           <div role="status" className="mb-3 flex items-center justify-between rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-text-primary">
             <div className="flex items-center gap-2">
@@ -289,11 +364,11 @@ export default function WebChatPage() {
         {state.unsentTurn && (
           <div role="region" aria-label={copy.unsentNotice} className="mb-3 flex items-center justify-between rounded-xl border border-warning/30 bg-warning/5 px-3 py-2 text-xs">
             <div className="min-w-0 flex-1 truncate pr-2">
-              <span className="font-medium text-warning">{copy.unsentNotice}: </span>
+              <span className="font-medium text-warning">{state.unsentTurn.uncertain ? copy.uncertainSend : copy.unsentNotice}: </span>
               <span className="text-text-secondary truncate">{state.unsentTurn.text || "…"}</span>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <Button type="button" size="sm" className="h-6 px-2 text-xs" disabled={!canSend} onClick={() => void controller.retryUnsent()}>
+              <Button type="button" size="sm" className="h-6 px-2 text-xs" disabled={!canSend || state.unsentTurn.uncertain} onClick={() => void controller.retryUnsent()}>
                 {copy.retrySend}
               </Button>
               <Button type="button" ghost size="sm" className="h-6 px-2 text-xs text-text-secondary" onClick={() => {
@@ -328,6 +403,7 @@ export default function WebChatPage() {
                 onClick={() => images.remove([image.id])}><X aria-hidden /></Button>
             </div>)}
           </div>}
+          {draftError && <p role="alert" className="mb-2 text-xs text-destructive">{draftError}</p>}
           {images.error && <p role="alert" className="mb-2 whitespace-pre-wrap text-xs text-destructive">{images.error}</p>}
           <input ref={imageInput} type="file" accept={WEB_CHAT_IMAGE_ACCEPT} multiple hidden onChange={(event) => {
             const files = Array.from(event.target.files || []);

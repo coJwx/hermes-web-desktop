@@ -47,11 +47,13 @@ class FakeWebSocket {
     );
   }
 
-  send() {}
+  frames: Array<{ method?: string }> = [];
+  send(text: string) { this.frames.push(JSON.parse(text)); }
 }
 
 type EventLike = {
   code?: number;
+  data?: string;
 };
 
 beforeEach(() => {
@@ -93,4 +95,24 @@ describe("GatewayClient", () => {
     ).toHaveBeenCalledWith(4401);
     expect(gw.connectionState).toBe("open");
   });
+
+  it("forwards the replay option to the real shared channel while preserving its default for other clients", async () => {
+    reloadMocks.maybeReloadForLoopbackWsAuthFailure.mockReturnValue(false);
+    for (const replay of [undefined, false]) {
+      const gw = new GatewayClient({ replay });
+      const open = async () => {
+        const count = FakeWebSocket.instances.length; const connecting = gw.connect();
+        await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(count + 1));
+        const socket = FakeWebSocket.instances.at(-1)!; socket.readyState = 1; socket.emit("open", {}); await connecting;
+        return socket;
+      };
+      const first = await open();
+      first.emit("message", { data: JSON.stringify({ jsonrpc: "2.0", method: "event", params: { type: "message.delta", session_id: "runtime", seq: 1, payload: { text: "live" } } }) });
+      first.emit("close", { code: 1006 });
+      const second = await open();
+      expect(second.frames.filter(frame => frame.method === "session.events.since")).toHaveLength(replay === false ? 0 : 1);
+      gw.close();
+    }
+  });
+
 });

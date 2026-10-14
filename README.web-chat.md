@@ -14,34 +14,111 @@ activity, stop, new conversation, a profile-scoped conversation dropdown, manual
 clarification, sudo and secret requests. Unsupported server requests fail through
 the shared client's method-not-found response, never an implicit approval.
 
-Only the last stored session ID is kept in browser sessionStorage, scoped to
-origin, base path and profile. Transcript history remains on the server. Reloading
-or returning to the page resumes that conversation; changing profiles restores
-the selected profile's own session. Private input is never added to the local
-transcript or sessionStorage. If storage is blocked, automatic refresh recovery is
-unavailable. New chat does not delete old server history.
+Browser sessionStorage keeps only the stored conversation IDs, tab order and
+active conversation, scoped to origin, base path and profile. The original last-ID
+key remains compatible. Reloading restores those tabs over one new connection,
+with at most two concurrent existing resume requests. A deleted or refused
+conversation stays as a local retryable error rather than creating a replacement.
+Malformed or blocked storage falls back to the prior last-ID behavior when available.
+Transcript history remains on the server; text/image drafts and private input are
+never persisted. New chat does not delete old server history.
 
-The compact toolbar lists the selected profile's latest 100 sessions through
-session.list and switches with session.resume. The list refreshes after turns,
-on session-change notifications and when the dropdown is focused. Switching is
-disabled during an active turn or pending human request; stop or finish it first.
-Unsent drafts are retained per conversation while this page remains mounted.
+After the first Web Chat visit, its profile-scoped workspace survives navigation
+to Files, Logs and other in-app routes. Returning retains tabs, selection, cached
+messages, text/image drafts, scroll/cursor and expansion state; valid cached views
+need no connection or history reload. The chat body unmounts while away, pausing
+roster/tail and cold snapshot-follow polling, while the shared WS continues routing
+background messages and requests. Existing cache budgets still apply: an evicted
+history needs local recovery on return. Ordinary navigation does not discard chat
+drafts or prompt for them. Profile replacement and refresh/window/native departure
+remain guarded, even while another page is visible; other editors still protect
+their own edits. Confirmed profile replacement disposes the old socket and owned
+image URLs. Browser routing and server APIs are unchanged.
 
-Conversation tabs sit beside the page title. The + button opens a picker with
-New chat and historical conversations that are not already open in a tab;
-opening this picker creates neither a tab nor a server session. Selecting an
-entry loads its conversation before adding the tab. Empty new conversations are
-labeled Untitled until a title or first message is available. The toolbar's
-conversation dropdown also excludes sessions occupied by other tabs.
+The workspace owns one logical WebSocket per origin, base path and selected
+profile. Conversation state and client operations are independent; the page
+renders only the selected conversation body. A cached tab selection needs no
+new connection, activate, resume, history or list request. Other open
+conversations continue receiving events and human requests by runtime ID.
 
-Tab switches can leave an acknowledged model turn running on the server and
-resume it later. Loading, submission acknowledgements, image staging, slash execution, model switching,
-pending human requests and unresolved unsent messages block tab navigation.
-Failed loads preserve the previous tab binding and draft; reconnect to restore
-its transport. Closing a tab keeps the conversation's server history and makes
-it available in the picker again. Closing the active tab selects its nearest
-neighbor, and the final tab remains open. Tabs and drafts reset when changing
-profiles or leaving the page; only the last selected session is restored on reload.
+Conversation tabs sit beside the page title. The + button offers New chat and
+historical conversations that are not already open; dismissing it creates no
+session or tab. A successful create/resume commits the new tab, while a refused
+load keeps the old view and draft. An empty unbound placeholder is reused. Late
+open results do not override a newer selection. Empty conversations remain
+Untitled until a title or first user message is available.
+
+Viewing another tab is allowed while a conversation is working, waiting for
+input or performing a client transaction. Closing/replacing the transaction's
+own tab waits for submission acknowledgement, image staging, slash execution
+or model confirmation. Asynchronous results stay attached to their original
+conversation. Text/images, cursor, scroll/follow and expansion state are
+retained while this workspace is mounted. The toolbar dropdown can replace a
+running conversation's view; that task remains reachable in the background.
+
+Closing an idle tab releases its local history. Closing a running/waiting tab
+releases its local body/preview and leaves a visible Background tasks entry that
+can reopen it and answer requests. Reopening a closed view restores full state
+through the existing APIs; inactive tabs that remain open keep their warm cache.
+The active tab chooses its left neighbor (right when there is no left), and the
+last tab stays open. No ordinary close calls session.close, delete or interrupt.
+The existing server has no per-session detach method, so a lightweight binding
+record survives for this connection generation. A later request on a closed
+binding promotes it back to background tracking.
+
+The current connection allows at most 16 potentially attached runtimes,
+including closed records and pending/uncertain creations. Local closing does
+not free a remote subscription. At capacity, use Reclaim idle connection records
+when every known task/request/client transaction and uncertain send is resolved;
+it reconnects once and restores only the visible conversations, preserving
+drafts. A lost create acknowledgement is never automatically retried. Unknown
+create membership can be cleared by ending the old idle connection, rather than
+guessing a session ID from the history list.
+
+History retention is limited to 8 conversations and an estimated 64 MiB;
+each displayed history keeps at most 400 rows / 8 MiB. Evicted background
+histories keep finite previews/status rather than growing from tokens again.
+Text drafts have a shared 4 MiB budget, image Files 100 MiB (25 MiB each), and
+recent closed drafts retain at most 8 entries without evicting open/task drafts.
+Owned image URLs are released on removal, eviction and departure. These limits
+bound retained data; a legacy full server response can still cause a larger
+network/JSON-decoding peak before trimming. Retained sizes are estimated from
+UTF-16 content and fixed object/reference overhead, cached by immutable identity.
+Buffer counters update on enqueue/drain and request counters on metadata changes;
+normal streaming does not serialize histories, requests or summaries for sizing.
+
+A single recovery coordinator uses at most two concurrent attachments. Complete
+live projections in the same runtime/epoch activate and replay from their
+actual applied sequence, buffering/deduplicating live events. Missing runtimes
+resume the stored identity. Truncated replay, sequence gaps, epoch changes and
+cold caches use full existing-protocol responses. Running cold recovery shows
+Synchronizing and replaces provisional text; only the visible active view
+refreshes a full snapshot, at most once per second without overlapping calls.
+Final text and settled history calibrate the result. The existing protocol has
+no atomic snapshot cursor, so cold inflight recovery does not promise an
+exactly-once snapshot/delta join.
+
+Requests replayed before attachment replies are buffered and assigned once the
+runtime identity resolves. Disconnection disables old responders; a replayed
+request replaces its closure. Private form values are cleared on disconnect
+or view removal and never enter the workspace cache/storage. Uncertain prompt
+acknowledgements keep an explicit notice and draft, are never automatically
+resent, and are not accepted/cleared based on arbitrary identical history text.
+
+The shared leave guard aggregates every open/background draft and short client
+transaction. Cancelling departure keeps the workspace intact; confirmed profile
+changes or route departure dispose its socket, listeners, timers and URLs.
+Long server tasks do not indefinitely block navigation. Only the last selected
+stored ID is restored on reload; full tabs/drafts/requests are not persisted.
+
+If incremental replay is unavailable, disconnects use conservative full
+recovery. A missing attachment method uses explicit single-session compatibility
+with the existing resume API; tab selection restores the active conversation
+and background streaming is not promised. An idle user can also choose that
+mode from an error state after verifying a non-additive deployment. Network,
+permission and settling errors remain their actual errors. No backend/shared
+package/Rust protocol change or new capability field is needed. Actual additive
+routing on the target deployment still requires its own acceptance check.
 
 Dropdown options show the title followed by a secondary line with relative
 creation time (started_at, not last activity), message count and source
@@ -59,10 +136,10 @@ A collapsed Subagents strip appears above the composer when children are known.
 The read-only first version shows goals, model/status, tool counts and last tool;
 select a child to inspect recent activity, its completion summary and live log.
 It subscribes to subagent events and hydrates with session-scoped subagent.list
-every 5 seconds while the page is visible. Only the expanded child log polls
+every 5 seconds while its selected conversation view is visible. Only the expanded child log polls
 subagent.tail (2 seconds while running); the server caps this to the latest
-16 KiB. Hidden pages stop polling. Summaries observed here remain cached per
-conversation until this page is unloaded; they are not a durable child-history
+16 KiB. Hidden pages and background tabs stop polling. Summaries observed here remain cached per
+conversation until this workspace is disposed; they are not a durable child-history
 viewer. Missing roster entries show unavailable rather than guessed completion.
 Unavailable logs retain the last fetched content while the detail remains open.
 Legacy backends without subagent.list keep the event-fed list without repeated
@@ -93,7 +170,7 @@ existing page controls. They are never sent to the model or executed in a worker
 Image messages support file selection, clipboard paste and drag/drop, removable
 thumbnails and a full-image preview. Send text with images or images alone. PNG,
 JPEG, GIF, WebP and BMP are supported, up to 25 MB per image. Unsent images remain
-local to their profile/conversation while this page is mounted; they are not
+local to their profile/conversation across in-app navigation; they are not
 restored after a reload. Slash commands with image drafts are refused explicitly.
 
 Sending reuses POST /api/chat/image-upload, then image.attach and prompt.submit.
@@ -103,15 +180,16 @@ sends detach staged images before retry; lost prompt acknowledgements are never
 automatically resent. History @image refs are rendered through authenticated,
 profile-scoped GET /api/media and remain visible after resume.
 
-The page does not implement non-image file attachments, a searchable/full
-history picker or automatic network reconnection.
+The page does not implement non-image file attachments or a searchable/full
+history picker. Automatic network recovery belongs to the workspace, with one
+retry/backoff schedule and a manual reconnect action.
 
 The composer model label opens a compact provider -> model cascader backed by
 session-scoped model.options. Choosing a model calls config.set with an explicit
 provider and --session, preserving profile defaults and other conversations.
 The menu has two single-line columns; hover or select a provider, then choose its
 model. The label shows provider/model (including custom:<name> slugs). Switching blocks
-duplicate picks, prompt submission and conversation switching until acknowledged;
+duplicate picks, prompt submission and closing/replacing the target tab until acknowledged;
 server-required expensive-model confirmations are kept. Active turns, image
 staging and pending human requests must finish before a model can be changed.
 

@@ -67,15 +67,21 @@ export function ConversationTabs({ tabs, activeTabId, tabIdPrefix, panelId, sess
       const above = rect.top - 20;
       const upward = below < 180 && above > below;
       const maxHeight = Math.max(80, Math.min(400, upward ? above : below));
-      setPosition({ width, maxHeight,
+      const next = { width, maxHeight,
         left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
         top: upward ? Math.max(12, rect.top - (panel.current?.offsetHeight || maxHeight) - 8) : rect.bottom + 8,
-      });
+      };
+      setPosition(previous => previous.left === next.left && previous.top === next.top && previous.width === next.width && previous.maxHeight === next.maxHeight ? previous : next);
+    };
+    let frame = 0;
+    const schedule = (event: Event) => {
+      if (panel.current?.contains(event.target as Node) || frame) return;
+      frame = requestAnimationFrame(() => { frame = 0; place(); });
     };
     place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => { window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener("resize", schedule); window.removeEventListener("scroll", schedule, true); };
   }, [open, sessions.length, sessionsLoading, sessionsError]);
 
   useEffect(() => {
@@ -111,12 +117,13 @@ export function ConversationTabs({ tabs, activeTabId, tabIdPrefix, panelId, sess
     buttons[next]?.focus();
   };
   const tabKey = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (blocked || event.nativeEvent.isComposing || (event.target as HTMLElement).getAttribute("role") !== "tab") return;
+    if (event.nativeEvent.isComposing || (event.target as HTMLElement).getAttribute("role") !== "tab") return;
     const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, Home: -tabs.length, End: tabs.length };
     if (!(event.key in moves)) return;
     event.preventDefault();
     const index = tabs.findIndex((tab) => tab.id === activeTabId);
     const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + moves[event.key] + tabs.length) % tabs.length;
+    close();
     focusAfterSwitch.current = true;
     void onSelect(tabs[next].id);
   };
@@ -126,19 +133,20 @@ export function ConversationTabs({ tabs, activeTabId, tabIdPrefix, panelId, sess
       {tabs.map((tab) => {
         const active = tab.id === activeTabId;
         const title = tab.title || copy.unnamed;
+        const status = tab.waiting ? copy.waiting : tab.syncing ? copy.loading : tab.busy ? copy.thinking : tab.error ? copy.failed : copy.connected;
         return <div key={tab.id} role="presentation" className={cn("group flex h-8 max-w-48 shrink-0 items-center rounded-lg transition-colors",
           active ? "bg-midground/15 font-medium text-text-primary" : "text-text-secondary hover:bg-midground/10")}>
           <button type="button" role="tab" id={tabIdPrefix + "-" + tab.id} aria-controls={panelId} aria-selected={active}
-            tabIndex={active ? 0 : -1} data-session-id={tab.storedSessionId || undefined} disabled={blocked} title={title}
+            tabIndex={active ? 0 : -1} data-session-id={tab.storedSessionId || undefined} title={title + " · " + status} aria-description={status}
             className="flex h-8 min-w-0 items-center gap-2 rounded-lg px-2.5 text-xs focus-visible:outline-2 focus-visible:outline-midground/60 disabled:cursor-wait"
-            onClick={() => void onSelect(tab.id)}>
+            onClick={() => { close(); void onSelect(tab.id); }}>
             <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", active
               ? !connected ? "bg-warning" : busy || waiting ? "animate-pulse bg-warning" : "bg-success"
-              : "bg-midground/40")} />
+              : tab.waiting || tab.busy ? "animate-pulse bg-warning" : tab.error ? "bg-destructive" : tab.unread ? "bg-success" : "bg-midground/40")} />
             <span className="truncate">{title}</span>
           </button>
           {tabs.length > 1 && <button type="button" aria-label={copy.closeTab + ": " + title} title={copy.closeTab}
-            disabled={switching || (active && blocked)}
+            disabled={tab.locked}
             className="mr-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-md opacity-100 hover:bg-midground/10 hover:text-destructive focus-visible:outline-2 focus-visible:outline-midground/60 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 disabled:cursor-wait"
             onClick={() => void onClose(tab.id)}><X aria-hidden className="h-3 w-3" /></button>}
         </div>;

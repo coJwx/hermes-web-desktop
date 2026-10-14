@@ -3,6 +3,8 @@ import { createContext } from "react";
 export interface DraftState {
   dirty: boolean;
   busy: boolean;
+  retainOnRouteChange?: boolean;
+  profileScope?: string;
 }
 
 export interface UnsavedChangesContextValue {

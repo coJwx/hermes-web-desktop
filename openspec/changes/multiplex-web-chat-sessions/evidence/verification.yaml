@@ -1,0 +1,69 @@
+scope:
+  change: multiplex-web-chat-sessions
+  stage: apply
+  risk: strict
+  date: 2026-10-13
+  fingerprint: "sha256:c5530f96ff12641779a88128b714adb1e1a4ad9fdf7345eddbfe40c91c846f50"
+  fingerprint_algorithm: "sorted relative path + LF + raw file bytes, concatenated"
+  files:
+    - README.web-chat.md
+    - src/components/web-chat/ConversationTabs.tsx
+    - src/components/web-chat/MessageRow.tsx
+    - src/components/web-chat/ModelCascader.tsx
+    - src/components/web-chat/RequestCard.tsx
+    - src/components/web-chat/SubagentPanel.tsx
+    - src/components/web-chat/ToolCallGroup.tsx
+    - src/hooks/useWebChat.ts
+    - src/hooks/useWebChatImages.test.tsx
+    - src/hooks/useWebChatImages.ts
+    - src/hooks/useWebChatTabs.ts
+    - src/lib/gatewayClient.ts
+    - src/lib/web-chat-cache.ts
+    - src/lib/web-chat-controller.ts
+    - src/lib/web-chat-copy.ts
+    - src/lib/web-chat-session-events.ts
+    - src/lib/web-chat-session.ts
+    - src/lib/web-chat-state.ts
+    - src/lib/web-chat-workspace-recovery.ts
+    - src/lib/web-chat-workspace.test.ts
+    - src/lib/web-chat-workspace.ts
+    - src/pages/WebChatPage.test.tsx
+    - src/pages/WebChatPage.tsx
+    - src/test/web-chat-server.ts
+evidence:
+  - check: pnpm exec tsc -b
+    result: pass
+    summary: "Final source typechecked with no diagnostics."
+  - check: pnpm exec vitest run src/lib/web-chat src/pages/WebChatPage.test.tsx src/hooks/useWebChatImages.test.tsx src/lib/gatewayClient.test.ts
+    result: pass
+    summary: "12 test files, 41 tests passed; final run 22:25 Asia/Shanghai. Real imported JSON-RPC channel used for wire scenarios."
+  - check: pnpm exec vite build --outDir node_modules/.tmp/web-chat-multiplex-build
+    result: pass
+    summary: "Production build succeeded; output within web/ only."
+  - check: openspec validate multiplex-web-chat-sessions --type change --strict --json --no-interactive
+    result: pass
+    summary: "Valid change, zero issues."
+  - check: git diff --check
+    result: pass
+    summary: "No whitespace diagnostics."
+  - check: Isolated WebChatPage browser UI
+    result: pass
+    summary: "320px menu/no document overflow, long titles, keyboard focus, per-tab drafts; desktop background approval remains reachable with one logical socket."
+  - check: Authenticated target WS acceptance
+    result: not-run
+    summary: "Deployment WS acceptance not run. Root request returned 302 /login; no authenticated server operations were performed."
+  - check: Real Tauri/native bridge acceptance
+    result: not-run
+    summary: "Rust unchanged; no native bridge run."
+  - check: Fixed-device production p95, CPU, heap/decode peak
+    result: not-run
+    summary: "No performance latency or hard heap guarantee claimed."
+invalidates_when:
+  - The listed implementation or test files change.
+  - Shared RPC/channel dependencies or deployed server method behavior change.
+  - Scope, profile, origin/base path, native lifecycle or resource-budget assumptions change.
+limitations:
+  - Wire fixture does not prove actual deployed additive attachment.
+  - Existing APIs offer no per-session detach or atomic snapshot cursor.
+  - Retained budgets do not bound full RPC download or JSON decoding peaks.
+  - Browser screenshots cover only the isolated fixture and recorded viewports.

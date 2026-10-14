@@ -1,18 +1,24 @@
 import { act, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import { createMemoryRouter, Link, Route, RouterProvider, Routes } from "react-router";
+import { createMemoryRouter, Link, Route, RouterProvider, Routes, useLocation } from "react-router";
 import { vi } from "vitest";
 import { I18nProvider } from "@/i18n";
 import { UnsavedChangesProvider } from "@/contexts/UnsavedChangesProvider";
 import { ProfileProvider } from "@/contexts/ProfileProvider";
 import { PageHeaderProvider } from "@/contexts/PageHeaderProvider";
+import { WebChatWorkspaceProvider } from "@/contexts/WebChatWorkspaceProvider";
 import { useProfileScope } from "@/contexts/useProfileScope";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-function TestShell({ children }: { children: ReactNode }) {
+function TestShell({ children, retainWebChat }: { children: ReactNode; retainWebChat: boolean }) {
+  const { pathname } = useLocation();
   const { profile, setProfile } = useProfileScope();
   const [hostEdits, setHostEdits] = useState(0);
+  const routes = <Routes>
+    <Route path="/edit" element={children} />
+    <Route path="/other" element={<p>Other page</p>} />
+  </Routes>;
   return <>
     <button onClick={() => setHostEdits((value) => value + 1)}>Host {hostEdits}</button>
     <Link to="/other">Leave editor</Link>
@@ -20,22 +26,19 @@ function TestShell({ children }: { children: ReactNode }) {
     <output data-profile>{profile}</output>
     <PageHeaderProvider pluginTabs={[]}>
       <div key={profile}>
-        <Routes>
-          <Route path="/edit" element={children} />
-          <Route path="/other" element={<p>Other page</p>} />
-        </Routes>
+        {retainWebChat ? <WebChatWorkspaceProvider active={pathname === "/edit"}>{routes}</WebChatWorkspaceProvider> : routes}
       </div>
     </PageHeaderProvider>
   </>;
 }
 
-export async function mountEditor(children: ReactNode, initialEntries = ["/other", "/edit?profile=A"]) {
+export async function mountEditor(children: ReactNode, initialEntries = ["/other", "/edit?profile=A"], retainWebChat = false) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   const router = createMemoryRouter([{ path: "*", element:
     <I18nProvider><UnsavedChangesProvider><ProfileProvider>
-      <TestShell>{children}</TestShell>
+      <TestShell retainWebChat={retainWebChat}>{children}</TestShell>
     </ProfileProvider></UnsavedChangesProvider></I18nProvider>,
   }], { initialEntries, initialIndex: initialEntries.length - 1 });
   await act(async () => { root.render(<RouterProvider router={router} />); });

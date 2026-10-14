@@ -19,8 +19,6 @@ interface ModelCascaderProps {
   copy: WebChatCopy;
 }
 
-interface PendingModelConfirm { provider: string; model: string; message: string; sessionId: string }
-
 export function ModelCascader({ controller, info, sessionId, disabled, switching, copy }: ModelCascaderProps) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -28,7 +26,8 @@ export function ModelCascader({ controller, info, sessionId, disabled, switching
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedSlug, setSelectedSlug] = useState("");
-  const [pendingConfirm, setPendingConfirm] = useState<PendingModelConfirm | null>(null);
+  const pendingConfirm = controller.getSnapshot().modelConfirmation ?? null;
+  const setPendingConfirm = (confirmation: typeof pendingConfirm) => controller.patchState({ modelConfirmation: confirmation });
   const [position, setPosition] = useState({ left: 0, top: 0, width: 440, height: 160 });
   const anchor = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -44,7 +43,7 @@ export function ModelCascader({ controller, info, sessionId, disabled, switching
   const rowCount = Math.max(3, providerRows.length, modelRows.length);
 
   useEffect(() => {
-    if (disabled) { close(); setPendingConfirm(null); }
+    if (disabled) close();
   }, [disabled, close]);
 
   useEffect(() => {
