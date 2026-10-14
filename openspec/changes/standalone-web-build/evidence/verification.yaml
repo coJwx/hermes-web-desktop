@@ -1,0 +1,65 @@
+scope:
+  change: standalone-web-build
+  stage: apply
+  risk: standard
+  files:
+    - .gitattributes
+    - package.json
+    - pnpm-lock.yaml
+    - tsconfig.app.json
+    - vite.config.ts
+    - vitest.config.ts
+    - scripts/sync-hermes-shared.mjs
+    - src/lib/shared-snapshot.test.js
+    - vendor/hermes-shared/LICENSE
+    - vendor/hermes-shared/README.md
+    - vendor/hermes-shared/UPSTREAM.json
+    - vendor/hermes-shared/package.json
+    - vendor/hermes-shared/src/ansi.ts
+    - vendor/hermes-shared/src/backend-scope.ts
+    - vendor/hermes-shared/src/billing-policy.ts
+    - vendor/hermes-shared/src/billing-types.ts
+    - vendor/hermes-shared/src/catalog-install.ts
+    - vendor/hermes-shared/src/charge-settlement.ts
+    - vendor/hermes-shared/src/color.ts
+    - vendor/hermes-shared/src/cron-trigger-controller.ts
+    - vendor/hermes-shared/src/data-url-read-max.ts
+    - vendor/hermes-shared/src/format.ts
+    - vendor/hermes-shared/src/fuzzy.ts
+    - vendor/hermes-shared/src/gateway-contract.generated.ts
+    - vendor/hermes-shared/src/gateway-contract.openrpc.json
+    - vendor/hermes-shared/src/gateway-events.ts
+    - vendor/hermes-shared/src/i18n.ts
+    - vendor/hermes-shared/src/index.ts
+    - vendor/hermes-shared/src/json-rpc-channel.ts
+    - vendor/hermes-shared/src/json-rpc-gateway.ts
+    - vendor/hermes-shared/src/model-search-text.ts
+    - vendor/hermes-shared/src/reasoning-effort.ts
+    - vendor/hermes-shared/src/reconnect-backoff.ts
+    - vendor/hermes-shared/src/skill-scaffold.ts
+    - vendor/hermes-shared/src/skin.ts
+    - vendor/hermes-shared/src/slash.ts
+    - vendor/hermes-shared/src/theme-presets.ts
+    - vendor/hermes-shared/src/translucency.ts
+    - vendor/hermes-shared/src/update-debt.ts
+    - vendor/hermes-shared/src/websocket-url.ts
+  fingerprint: "c44e64446e23ecc109e4a6ee2626744100f271c8318ced64685f92598a9c4d5f"
+evidence:
+  - check: "Web-only copy: pnpm install --frozen-lockfile --offline; pnpm typecheck; pnpm test; pnpm build"
+    result: pass
+    summary: "No parent shared/scripts/modules; 85 files and 508 tests passed; static dist built"
+  - check: "Actual local Git clone with core.autocrlf=true, then frozen offline install and pnpm build"
+    result: pass
+    summary: "All 30 provenance hashes survive Windows checkout; independent build succeeds"
+  - check: "Full checkout pnpm build and output comparison"
+    result: pass
+    summary: "63 files, 3764070 bytes; all hashes match the standalone clone; 22 HTML/CSS refs exist"
+  - check: "openspec validate standalone-web-build --strict; git diff --check"
+    result: pass
+    summary: "Change contracts and patch checks"
+  - check: "Native packaging, remote deployment and end-user authentication"
+    result: not-run
+    summary: "Outside frontend-only acceptance"
+invalidates_when:
+  - "Listed implementation, snapshot, dependency or build configuration changes"
+  - "Referenced application behavior changes"

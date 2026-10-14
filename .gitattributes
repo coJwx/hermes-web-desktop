@@ -1,0 +1,17 @@
+# Keep standalone text sources consistent across platforms.
+* text=auto
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.toml text eol=lf
+*.ps1 text eol=crlf
+
+# Provenance hashes describe the exact Git-object bytes of the upstream snapshot.
+vendor/hermes-shared/** -text

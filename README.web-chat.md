@@ -106,10 +106,11 @@ acknowledgements keep an explicit notice and draft, are never automatically
 resent, and are not accepted/cleared based on arbitrary identical history text.
 
 The shared leave guard aggregates every open/background draft and short client
-transaction. Cancelling departure keeps the workspace intact; confirmed profile
-changes or route departure dispose its socket, listeners, timers and URLs.
-Long server tasks do not indefinitely block navigation. Only the last selected
-stored ID is restored on reload; full tabs/drafts/requests are not persisted.
+transaction. Cancelling profile replacement keeps the workspace intact; confirmed profile
+replacement or actual application departure disposes its socket, listeners, timers
+and URLs. In-app route departure preserves the workspace. Long server tasks do not
+indefinitely block navigation. Reload restores stored tab identities/order/selection;
+draft bodies, Files and requests are not persisted.
 
 If incremental replay is unavailable, disconnects use conservative full
 recovery. A missing attachment method uses explicit single-session compatibility
@@ -194,6 +195,7 @@ server-required expensive-model confirmations are kept. Active turns, image
 staging and pending human requests must finish before a model can be changed.
 
 For development use the existing Vite proxy (pnpm dev) and configure
-HERMES_DASHBOARD_URL for the running Dashboard/Serve backend. Build with
-pnpm exec tsc -b and pnpm exec vite build. The new page uses the same theme
+HERMES_DASHBOARD_URL for the running Dashboard/Serve backend. Install with
+pnpm install --frozen-lockfile and build with pnpm build. The output is repository-local dist/, using the pinned vendor/hermes-shared snapshot; a parent
+Hermes checkout is not needed for compilation. The new page uses the same theme
 tokens, UI buttons and Markdown renderer as the rest of the dashboard.

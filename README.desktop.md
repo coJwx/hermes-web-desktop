@@ -29,7 +29,7 @@ pnpm build:desktop
 pnpm test:desktop
 ```
 
-`dev:desktop` 使用预先构建的内置前端，而不是 Vite 开发代理；前端修改后需重新启动，便于让开发/发布遵循同一条认证和转发路径。浏览器开发继续使用 `pnpm dev`，原来的 `pnpm build` 输出仍保持不变。
+`dev:desktop` 使用预先构建的内置前端，而不是 Vite 开发代理；前端修改后需重新启动，便于让开发/发布遵循同一条认证和转发路径。浏览器开发继续使用 `pnpm dev`。独立前端 `pnpm build` 现输出当前仓库的 `dist/`；桌面构建继续显式输出 `dist-desktop/`。两者都使用仓库内共享快照，完整项目与独立克隆均无需父级构建脚本。
 
 产物：
 

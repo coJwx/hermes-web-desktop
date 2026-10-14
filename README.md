@@ -1,56 +1,42 @@
-# Hermes Agent — Web UI
+# Hermes Web / Desktop
 
-Browser-based dashboard for managing Hermes Agent configuration, API keys, and monitoring active sessions.
+Hermes Dashboard 前端及本地 Tauri 客户端源码。**单独克隆本仓库即可构建前端产物**；构建不需要父级 Hermes checkout、Python、Rust 或正在运行的后端。
 
-## Stack
+## 前端构建
 
-- **Vite** + **React 19** + **TypeScript**
-- **Tailwind CSS v4** with custom dark theme
-- **shadcn/ui**-style components (hand-rolled, no CLI dependency)
+使用 Node.js 22.12+（推荐 Node 24 LTS）和 pnpm，在仓库根目录执行：
 
-## Development
-
-```bash
-# Start the backend API server
-cd ../
-python -m hermes_cli.main web --no-open
-
-# In another terminal, start the Vite dev server (with HMR + API proxy)
-cd web/
-npm install
-npm run dev
+```powershell
+pnpm install --frozen-lockfile
+pnpm build
 ```
 
-Open the **Vite URL** printed in the terminal (usually `http://localhost:5173`). That is the live-reload UI.
+产物位于 `dist/`，包含 `index.html`、JS/CSS、字体和图标。`pnpm build` 先执行 TypeScript 检查，再运行 Vite。构建时不连接后端；依赖安装需要包缓存或网络。
 
-`hermes dashboard` on port 9119 serves the **built** bundle from `hermes_cli/web_dist/`, not the Vite dev server — changes in `web/src/` will not appear there until you run `npm run build` and restart the dashboard (or use `web --no-open` + Vite as above).
+`vendor/hermes-shared/` 是仓库内固定版本的共享包，包含客户端、类型、公共工具和MIT许可证。正常安装/构建不读取 `../apps/shared`，也不运行父项目的构建脚本。来源和校验见 `vendor/hermes-shared/UPSTREAM.json`，有意更新的步骤见同目录README。
 
-The Vite dev server proxies `/api` requests to `http://127.0.0.1:9119` (the FastAPI backend).
+## 开发与验证
 
-## Build
-
-```bash
-npm run build
+```powershell
+pnpm dev
+pnpm typecheck
+pnpm test
 ```
 
-This outputs to `../hermes_cli/web_dist/`, which the FastAPI server serves as a static SPA. The built assets are included in the Python package via `pyproject.toml` package-data.
+浏览器开发需连接已有Hermes Dashboard，可通过进程环境 `HERMES_DASHBOARD_URL` 指定地址。Vite复用已有API/WS代理和初始化bootstrap，不要把真实token写入源码。
 
-## Structure
+前端产物仍需要Hermes后端提供API、认证和初始化HTML中的运行时bootstrap；`pnpm preview`可检查静态资源，不会启动Hermes服务。部署到现有Dashboard时，应按该服务原有流程放置 `dist/` 内容并保留bootstrap注入；本次改造不提供新的后端、通用静态站点认证或部署脚本。
 
-```
-src/
-├── components/ui/   # Reusable UI primitives (Card, Badge, Button, Input, etc.)
-├── lib/
-│   ├── api.ts       # API client — typed fetch wrappers for all backend endpoints
-│   └── utils.ts     # cn() helper for Tailwind class merging
-├── pages/
-│   ├── StatusPage   # Agent status, active/recent sessions
-│   ├── ConfigPage   # Dynamic config editor (reads schema from backend)
-│   └── EnvPage      # API key management with save/clear
-├── App.tsx          # Main layout and navigation
-├── main.tsx         # React entry point
-└── index.css        # Tailwind imports and theme variables
-```
+## 桌面客户端
+
+现有桌面流程保留：`pnpm build:desktop`生成 `dist-desktop/`，`pnpm build:exe`构建Tauri程序。桌面打包另需Rust/MSVC、Windows SDK及WebView2，具体见 `README.desktop.md`；独立前端构建不要求这些工具。本次独立构建验收以 `dist/` 为准。
+
+聊天架构与行为见 `README.web-chat.md`，Agent工作规则及从父仓库单独提交/推送Web的命令见 `AGENTS.md`。
+
+## 来源与许可证
+
+本项目来自Nous Research Hermes Agent，定制Web Chat/Tauri功能在Web范围维护。源码遵循根目录MIT LICENSE；固定共享包同时保留上游LICENSE与来源记录。
+
 
 ## Typography & contrast rules
 

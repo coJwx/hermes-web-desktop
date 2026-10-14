@@ -19,9 +19,9 @@
     /* Path aliases */
     "paths": {
       "@/*": ["./src/*"],
-      "@hermes/shared": ["../apps/shared/src/index.ts"],
-      "@hermes/shared/ansi": ["../apps/shared/src/ansi.ts"],
-      "@hermes/shared/i18n": ["../apps/shared/src/i18n.ts"]
+      "@hermes/shared": ["./vendor/hermes-shared/src/index.ts"],
+      "@hermes/shared/ansi": ["./vendor/hermes-shared/src/ansi.ts"],
+      "@hermes/shared/i18n": ["./vendor/hermes-shared/src/i18n.ts"]
     },
 
     /* Linting */
@@ -32,6 +32,6 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["src", "../apps/shared/src"],
-  "exclude": ["../apps/shared/src/**/*.test.ts"]
+  "include": ["src", "./vendor/hermes-shared/src"],
+  "exclude": ["./vendor/hermes-shared/src/**/*.test.ts"]
 }

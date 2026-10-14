@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@hermes/shared':
-        specifier: file:../apps/shared
-        version: file:../apps/shared
+        specifier: file:./vendor/hermes-shared
+        version: file:vendor/hermes-shared
       '@nous-research/ui':
         specifier: 0.18.2
         version: 0.18.2(@observablehq/plot@0.6.17)(@react-three/fiber@9.6.1(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.180.0))(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(gsap@3.15.0)(leva@0.10.1(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(motion@12.42.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7))(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(three@0.180.0)
@@ -336,8 +336,8 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@hermes/shared@file:../apps/shared':
-    resolution: {directory: ../apps/shared, type: directory}
+  '@hermes/shared@file:vendor/hermes-shared':
+    resolution: {directory: vendor/hermes-shared, type: directory}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -3455,7 +3455,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@hermes/shared@file:../apps/shared': {}
+  '@hermes/shared@file:vendor/hermes-shared': {}
 
   '@humanfs/core@0.19.2':
     dependencies:
