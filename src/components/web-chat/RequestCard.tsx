@@ -4,6 +4,13 @@ import { Button } from "@nous-research/ui/ui/components/button";
 import type { ApprovalRequestParams, ClarifyRequestParams, SecretRequestParams, SudoRequestParams, ServerRequest } from "@hermes/shared";
 import type { WebChatCopy } from "@/lib/web-chat-copy";
 
+interface WebClarifyRequestParams extends Partial<ClarifyRequestParams> {
+  // Older deployed servers send a single question instead of a questions batch.
+  question?: string;
+  choices?: string[];
+  multi_select?: boolean;
+}
+
 interface RequestCardProps {
   request: ServerRequest;
   online?: boolean;
@@ -37,7 +44,7 @@ export function RequestCard({ request, copy, respond, online = true }: RequestCa
   }
 
   if (request.method === "clarify") {
-    const p = request.params as unknown as ClarifyRequestParams;
+    const p = request.params as unknown as WebClarifyRequestParams;
     const questions = p.questions?.length ? p.questions : [{ qid: "answer", question: p.question ?? copy.answer, choices: p.choices, multi_select: p.multi_select }];
     const submit = () => reply(p.questions?.length ? { answers: { ...p.answers, ...answers } } : { answer: answers.answer ?? "" });
     return <form aria-label={copy.clarify} className="space-y-3 rounded-xl border border-midground/25 bg-midground/5 p-4" onSubmit={(event) => { event.preventDefault(); submit(); }}>

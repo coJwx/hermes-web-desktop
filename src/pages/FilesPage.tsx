@@ -15,6 +15,7 @@ import {
   FolderPlus,
   RefreshCw,
   Trash2,
+  Unlink,
   Upload,
 } from "lucide-react";
 import { Badge } from "@nous-research/ui/ui/components/badge";
@@ -236,7 +237,7 @@ export default function FilesPage() {
   };
 
   const downloadFile = async (entry: ManagedFileEntry) => {
-    if (entry.is_directory) return;
+    if (entry.is_directory || entry.broken_link) return;
     try {
       const file = await api.readFile(entry.path);
       downloadDataUrl(file.data_url, file.name);
@@ -412,6 +413,8 @@ export default function FilesPage() {
                   <button
                     type="button"
                     onClick={() => openDirectory(entry)}
+                    disabled={entry.broken_link}
+                    title={entry.broken_link ? "Broken symbolic link" : undefined}
                     className="flex min-w-0 items-center gap-2 rounded-none border-0 bg-transparent text-left font-mono text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
                   >
                     <Folder className="h-4 w-4 shrink-0 text-warning" />
@@ -421,16 +424,23 @@ export default function FilesPage() {
                   <button
                     type="button"
                     onClick={() => setPreviewEntry(entry)}
+                    disabled={entry.broken_link}
+                    title={entry.broken_link ? "Broken symbolic link" : undefined}
                     className="flex min-w-0 select-text items-center gap-2 rounded-none border-0 bg-transparent text-left font-mono text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
                     aria-label={`${t.files.preview ?? "Preview"}: ${entry.name}`}
                   >
-                    <FileIcon className="h-4 w-4 shrink-0 text-text-tertiary" />
+                    {entry.broken_link
+                      ? <Unlink className="h-4 w-4 shrink-0 text-destructive" />
+                      : <FileIcon className="h-4 w-4 shrink-0 text-text-tertiary" />}
                     <span className="truncate" title={entry.name}>{entry.name}</span>
+                    {entry.broken_link && <Badge tone="destructive" className="shrink-0 text-xs">Broken link</Badge>}
                   </button>
                 )}
                 <span className="text-xs tabular-nums text-text-secondary">{formatBytes(entry.size)}</span>
                 <span className="truncate text-xs text-text-secondary">
-                  {Number.isFinite(entry.mtime) ? DATE_FORMAT.format(entry.mtime * 1000) : "-"}
+                  {entry.mtime !== null && Number.isFinite(entry.mtime)
+                    ? DATE_FORMAT.format(entry.mtime * 1000)
+                    : "-"}
                 </span>
                 <span className="flex justify-end gap-1">
                   <Button
@@ -459,6 +469,7 @@ export default function FilesPage() {
                       size="icon"
                       type="button"
                       onClick={() => void downloadFile(entry)}
+                      disabled={entry.broken_link}
                       aria-label={`Download ${entry.name}`}
                     >
                       <Download />

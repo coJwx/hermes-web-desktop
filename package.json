@@ -10,12 +10,12 @@
     "build:desktop": "tsc -b && vite build --outDir dist-desktop && node desktop/prepare.mjs",
     "build:exe": "tauri build",
     "test:desktop": "pnpm build:desktop && cargo test --locked --manifest-path src-tauri/Cargo.toml",
-    "build": "tsc -b && vite build",
+    "build": "node ../scripts/build/web.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "fix": "npm run lint:fix",
     "preview": "vite preview",
-    "typecheck": "tsc -p . --noEmit",
+    "typecheck": "tsc -b . --noEmit",
     "test": "vitest run",
     "check": "npm run typecheck && npm run test && npm run lint"
   },
@@ -67,6 +67,6 @@
     "typescript": "6.0.3",
     "unified": "11.0.5",
     "vite": "8.2.0",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   }
 }
