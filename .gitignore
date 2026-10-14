@@ -1,4 +1,35 @@
+# Dependencies and caches (also apply when web/ is a standalone repository).
+node_modules
+.pnpm-store/
+.vite/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+
+# Environment files and local credentials.
+.env
+.env.*
+!.env.example
+*.pem
+*.ppk
+*.p12
+*.pfx
+
+# Build and test output.
+/dist/
 /dist-desktop/
+/coverage/
+/playwright-report/
+/test-results/
 /src-tauri/target/
 /src-tauri/gen/
+/public/fonts/
+/public/ds-assets/
+*.log
+
+# Local editor settings and application data.
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
 hermes-dashboard-data/
