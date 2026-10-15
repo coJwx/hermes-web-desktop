@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConfigSetResult } from "@hermes/shared";
 import { WebChatController } from "./web-chat-controller";
-import { sessionModelValue, webChatModelLabel, webChatModelProviders } from "./web-chat-models";
+import { sessionModelValue, storedSessionModel, webChatModelLabel, webChatModelProviders } from "./web-chat-models";
 
 const mock = vi.hoisted(() => ({
   requests: [] as Array<{ method: string; params: Record<string, unknown> }>,
   nextSession: 0,
   setModel: vi.fn(),
+  detail: vi.fn(),
 }));
+
+vi.mock("./api", () => ({ api: { getSessionDetail: mock.detail } }));
 
 vi.mock("./gatewayClient", () => ({
   GatewayClient: class {
@@ -32,7 +35,58 @@ vi.mock("./gatewayClient", () => ({
 }));
 
 const createController = () => new WebChatController({ profile: "coding", restore: () => null, remember: () => {} });
-beforeEach(() => { mock.requests.length = 0; mock.nextSession = 0; mock.setModel.mockReset(); });
+beforeEach(() => { mock.requests.length = 0; mock.nextSession = 0; mock.setModel.mockReset(); mock.detail.mockReset().mockResolvedValue({}); });
+
+describe("Stored conversation model identity", () => {
+  it("decodes string/object routes and rejects missing or malformed metadata without guessing a provider", () => {
+    const identity = { provider: "custom:yyapi-responses", model: "gpt-6.1-sol" };
+    expect(storedSessionModel(JSON.stringify({ ...identity, api_mode: "codex_responses", base_url: "https://example.test/v1" }))).toEqual(identity);
+    expect(storedSessionModel(identity)).toEqual(identity);
+    expect(storedSessionModel({ provider: identity.provider }, identity.model)).toEqual(identity);
+    expect(storedSessionModel({ provider: "custom:old", model: identity.model, gateway_runtime: { provider: identity.provider } })).toEqual(identity);
+    for (const config of [undefined, null, "", "{bad", "null", "[]", [], 1, {}, { provider: " " }, { provider: 42 }, { provider: identity.provider, model: 42 }]) {
+      expect(storedSessionModel(config)).toBeNull();
+    }
+  });
+
+  it("discards delayed session metadata after a model switch or conversation replacement", async () => {
+    const pending: Array<(detail: unknown) => void> = [];
+    mock.detail.mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+    const controller = createController();
+    await controller.start();
+    expect(mock.detail).toHaveBeenCalledWith("stored-1", "coding", expect.any(AbortSignal));
+    mock.setModel.mockResolvedValue({ key: "model", value: "chosen", scope: "session" });
+    await controller.switchModel("custom:selected", "chosen");
+    pending[0]({ id: "stored-1", model_config: { provider: "custom:old", model: "old" } });
+    await Promise.resolve();
+    expect(controller.getSnapshot().sessionModel).toEqual({ provider: "custom:selected", model: "chosen" });
+
+    const oldRead = controller.refreshSessionModel(true);
+    await controller.start(true);
+    pending[2]({ id: "stored-2", model_config: { provider: "custom:new", model: "new" } });
+    await Promise.resolve();
+    pending[1]({ id: "stored-1", model_config: { provider: "custom:old", model: "old" } });
+    await oldRead;
+    expect(controller.getSnapshot().sessionModel).toEqual({ provider: "custom:new", model: "new" });
+    const reads = mock.detail.mock.calls.length;
+    await controller.refreshSessionModel();
+    expect(mock.detail).toHaveBeenCalledTimes(reads);
+    controller.stop();
+  });
+
+  it("keeps WS metadata usable when REST fails or model_config is malformed", async () => {
+    const controller = createController();
+    mock.detail.mockRejectedValueOnce(new Error("Session detail unavailable"));
+    await controller.start();
+    expect(controller.getSnapshot()).toMatchObject({ sessionModel: null, error: null, loading: false,
+      info: { provider: "custom:original", model: "original-model" } });
+    mock.detail.mockResolvedValueOnce({ id: "stored-1", model_config: "{bad" });
+    await controller.refreshSessionModel(true);
+    expect(controller.getSnapshot()).toMatchObject({ sessionModel: null, error: null,
+      info: { provider: "custom:original", model: "original-model" } });
+    controller.stop();
+  });
+});
 
 describe("Current-conversation model selection", () => {
   it("loads profile-scoped options, switches only the live session, and blocks overlapping sends/switches", async () => {

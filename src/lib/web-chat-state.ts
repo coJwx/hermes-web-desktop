@@ -2,6 +2,7 @@ import type { SessionLiveInfo, SessionListRow, TranscriptMessage, TurnStatus, Se
 import type { ConnectionState } from "./gatewayClient";
 import { imageMessageContent, type ChatImage } from "./web-chat-images";
 import type { WebChatSubagent } from "./web-chat-subagents";
+import type { WebChatModelIdentity } from "./web-chat-models";
 
 export interface ChatMessage {
   id: string;
@@ -44,6 +45,7 @@ export interface WebChatState {
   sessionsLoading: boolean;
   sessionsError: string | null;
   info: SessionLiveInfo;
+  sessionModel: WebChatModelIdentity | null;
   messages: ChatMessage[];
   requests: ServerRequest[];
   error: string | null;
@@ -59,7 +61,7 @@ export interface WebChatState {
 export function initialWebChatState(): WebChatState {
   return {
     connection: "idle", loading: true, busy: false, submitting: false, commandBusy: false, sendingImages: false, switchingModel: false, stopping: false,
-    sessionId: null, storedSessionId: null, sessions: [], sessionsLoading: false, sessionsError: null, info: {}, messages: [],
+    sessionId: null, storedSessionId: null, sessions: [], sessionsLoading: false, sessionsError: null, info: {}, sessionModel: null, messages: [],
     requests: [], error: null, notice: null, subagents: [], subagentsError: null, subagentsUnsupported: false,
     reconnectAttempt: 0, reconnectCountdown: null, unsentTurn: null,
   };

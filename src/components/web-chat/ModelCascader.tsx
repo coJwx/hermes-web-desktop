@@ -33,8 +33,9 @@ export function ModelCascader({ controller, info, sessionId, disabled, switching
   const panel = useRef<HTMLDivElement>(null);
   const providerColumn = useRef<HTMLDivElement>(null);
   const modelColumn = useRef<HTMLDivElement>(null);
-  const activeProvider = info.provider === "custom" ? catalog?.provider || info.provider : info.provider || catalog?.provider || "";
-  const currentModel = info.model || catalog?.model || "";
+  const sessionModel = controller.getSnapshot().sessionModel;
+  const activeProvider = sessionModel?.provider || (info.provider === "custom" ? catalog?.provider || info.provider : info.provider || catalog?.provider || "");
+  const currentModel = sessionModel?.model || info.model || catalog?.model || "";
   const label = webChatModelLabel(activeProvider, currentModel);
   const close = useCallback(() => { setOpen(false); setSelectedSlug(""); }, []);
   const providerRows = useMemo(() => webChatModelProviders(catalog?.providers || [], activeProvider, currentModel), [catalog, activeProvider, currentModel]);
@@ -153,7 +154,7 @@ export function ModelCascader({ controller, info, sessionId, disabled, switching
             {providerRows.map((provider) => <button key={provider.slug} type="button" data-option role="menuitemradio" aria-checked={selected?.slug === provider.slug} disabled={switching}
               title={provider.name + " · " + provider.slug}
               className={cn("flex h-9 w-full items-center gap-2 rounded-md px-3 text-left text-xs hover:bg-midground/5 focus-visible:outline-2 focus-visible:outline-blue-500", selected?.slug === provider.slug && "bg-blue-500/15 font-medium text-blue-600 dark:text-blue-400")}
-              onMouseEnter={() => { if (!switching) setSelectedSlug(provider.slug); }} onFocus={() => setSelectedSlug(provider.slug)} onClick={() => setSelectedSlug(provider.slug)}>
+              onClick={() => setSelectedSlug(provider.slug)}>
               <span className="min-w-0 flex-1 truncate">{provider.name}</span>
               <ChevronRight aria-hidden className="h-3 w-3 shrink-0" />
             </button>)}

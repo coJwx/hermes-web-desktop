@@ -51,6 +51,50 @@ afterEach(async () => {
 });
 
 describe("Web Chat over the real JSON-RPC client", () => {
+  it("displays the stored model_config identity despite incorrect WS/catalog providers and reuses it on tab switches", async () => {
+    const stored = seedSession("model-history", "Stored model conversation");
+    Object.assign(stored.info, { provider: "custom:gemini", model: "gpt-6.1-sol" });
+    webChatPersistence("A").remember(stored.stored_session_id);
+    const fetchDefault = vi.mocked(fetch).getMockImplementation()!;
+    const detailReads: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const parsed = new URL(url, "http://localhost");
+      if (parsed.pathname === "/api/sessions/model-history") {
+        detailReads.push(url);
+        return json({ id: stored.stored_session_id, model: "gpt-6.1-sol", model_config: JSON.stringify({
+          provider: "custom:yyapi-responses", model: "gpt-6.1-sol", api_mode: "codex_responses",
+        }) });
+      }
+      return fetchDefault(url, init);
+    }));
+    const send = ChatTestSocket.prototype.send;
+    vi.spyOn(ChatTestSocket.prototype, "send").mockImplementation(function(this: ChatTestSocket, text: string) {
+      const frame = JSON.parse(text);
+      if (frame.method === "model.options") {
+        this.frames.push(frame);
+        this.receive({ id: frame.id, result: { provider: "custom:gemini", model: "gpt-6.1-sol", providers: [
+          { slug: "custom:gemini", name: "Gemini", models: ["gemini-model"] },
+          { slug: "custom:yyapi-responses", name: "YYAPI Responses", models: ["gpt-6.1-sol"] },
+        ] } });
+      } else send.call(this, text);
+    });
+    app = await mountEditor(<WebChatPage />, undefined, true);
+    await settle();
+    const label = "custom:yyapi-responses/gpt-6.1-sol";
+    expect(document.querySelector(`button[title="${label}"]`)).not.toBeNull();
+    expect(new URL(detailReads[0], "http://localhost").searchParams.get("profile")).toBe("A");
+    await press("Switch model: " + label);
+    expect(document.querySelector('[aria-label="Models"] button[aria-checked="true"]')?.textContent).toBe("gpt-6.1-sol");
+    await act(async () => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })); });
+    await act(async () => { latest().event("session.info", { provider: "custom:gemini", model: "gpt-6.1-sol" }); });
+    expect(document.querySelector(`button[title="${label}"]`)).not.toBeNull();
+    const reads = detailReads.length;
+    await press("Open conversation tab"); await press("New chat", tabMenu());
+    await act(async () => { tabButtons().find(tab => tab.dataset.sessionId === stored.stored_session_id)!.click(); });
+    expect(document.querySelector(`button[title="${label}"]`)).not.toBeNull();
+    expect(detailReads).toHaveLength(reads);
+  });
+
   it("streams scoped turns, answers human requests safely, and stops only at the terminal event", async () => {
     app = await mountEditor(<WebChatPage />, undefined, true);
     await settle();

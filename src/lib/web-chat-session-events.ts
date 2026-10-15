@@ -14,6 +14,7 @@ interface SessionEventContext {
   nextId: () => number;
   refreshSessions: () => Promise<void>;
   refreshSubagents: () => Promise<boolean>;
+  refreshSessionModel: (force?: boolean) => Promise<void>;
 }
 
 export function attachSessionEvents(client: WebChatTransport, context: SessionEventContext, current: () => boolean) {
@@ -24,8 +25,13 @@ export function attachSessionEvents(client: WebChatTransport, context: SessionEv
         context.update({ requests: context.state().requests.filter((item) => item.id !== event.payload?.id) });
       }),
       client.on("session.info", (event) => {
-        if (own(event.session_id)) context.update({ info: { ...context.state().info, ...event.payload },
-          storedSessionId: event.payload?.stored_session_id ?? context.state().storedSessionId });
+        if (!own(event.session_id)) return;
+        const before = context.state();
+        context.update({ info: { ...before.info, ...event.payload },
+          storedSessionId: event.payload?.stored_session_id ?? before.storedSessionId });
+        if ((event.payload?.model && event.payload.model !== before.info.model) ||
+            (event.payload?.provider && event.payload.provider !== before.info.provider) ||
+            (event.payload?.stored_session_id && event.payload.stored_session_id !== before.storedSessionId)) void context.refreshSessionModel(true);
       }),
       client.on("sessions.changed", () => {
         if (current() && !context.state().loading) void context.refreshSessions();
@@ -65,6 +71,7 @@ export function attachSessionEvents(client: WebChatTransport, context: SessionEv
         context.clearAssistant();
         context.update({ busy: false, stopping: false, error: payload?.error ?? (payload?.status === "error" ? payload.failure_reason ?? "Hermes could not complete this turn." : null), notice: payload?.warning ?? null });
         void context.refreshSessions();
+        if (!context.state().sessionModel) void context.refreshSessionModel(true);
       }),
       client.on("tool.start", (event) => {
         if (!own(event.session_id) || !event.payload) return;

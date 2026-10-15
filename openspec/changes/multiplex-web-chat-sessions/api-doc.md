@@ -121,3 +121,11 @@ result的已有events、latest_seq、truncated、epoch、open_requests用于恢�
 ## 8. 站内导航与刷新（2026-10-14）
 
 站内Files/Logs往返保留现有连接与本地工作区，不新增RPC；完整聊天视图卸载时暂停视图轮询。缓存有效的返回不需要resume/activate/history。真正刷新后按scoped sessionStorage里的stored ID清单，在一个新WS上以最多2个并发调用既有session.resume恢复，局部拒绝仍显示原错误。此清单不包含runtime ID、正文、草稿、请求元数据或秘密，不能据ID存储宣称刷新后保持实时连接。
+
+## 9. 会话模型显示（2026-10-15）
+
+每个会话初次附着后，以返回的stored ID和当前profile读取已有 `GET /api/sessions/{id}?profile=...`。模型标签和模型选择器优先使用详情的 `model_config`：字符串只在收到响应后JSON解析一次，对象直接读取；若有带provider的 `gateway_runtime` 则优先使用该路由，再读取顶层字段，model缺失时使用详情的model。只保留provider/model两个显示字段，不缓存完整配置、URL、凭据或usage anchor。
+
+结果由该会话controller在内存中持有，缓存有效的页签/路由往返不重复读取。WS模型/身份变化及命令执行后按需刷新；新会话尚无可用配置时在首轮完成后重试。缺失、格式异常或读取失败时回退到已有WS/模型目录显示，不阻塞聊天。成功的本地模型选择立即更新显示，并取消可能覆盖新选择的旧详情请求；停止、会话替换及profile切换后的迟到结果丢弃。
+
+此适配只决定客户端显示及选择器当前项，不改写服务端会话配置，也不证明服务端实际请求路由已被修复。

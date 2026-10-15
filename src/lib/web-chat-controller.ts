@@ -8,7 +8,8 @@ import { runWebChatCommand, type WebChatCommandResult } from "./web-chat-command
 import type { WebChatCopy } from "./web-chat-copy";
 import { uploadChatImage } from "./chatImagePaste";
 import { detachChatImages, ImageStagingError, stageChatImages, type ChatImage } from "./web-chat-images";
-import { sessionModelValue } from "./web-chat-models";
+import { sessionModelValue, storedSessionModel } from "./web-chat-models";
+import { api } from "./api";
 import { reconcileSubagentSnapshot, type WebChatSubagent } from "./web-chat-subagents";
 
 import { cacheHistoryAppend, cacheHistoryReplacement, requestsBytes } from "./web-chat-cache";
@@ -57,6 +58,8 @@ export class WebChatController {
   private countdownInterval: ReturnType<typeof setInterval> | null = null;
   private manualStop = false;
   private publishTimer: ReturnType<typeof setTimeout> | null = null;
+  private modelRead: AbortController | null = null;
+  private modelLoadedId: string | null = null;
 
   constructor(privateOptions: WebChatOptions) { this.options = privateOptions; }
   private readonly options: WebChatOptions;
@@ -205,7 +208,8 @@ export class WebChatController {
       ...attachSessionEvents(client, { state: this.getSnapshot, update: patch => this.update(patch),
         patchMessage: (id, patch) => this.patchMessage(id, patch), assistant: () => this.assistant(),
         assistantId: () => this.assistantId, clearAssistant: () => { this.assistantId = null; },
-        nextId: () => ++this.nextId, refreshSessions: this.refreshSessions, refreshSubagents: this.refreshSubagents }, current),
+        nextId: () => ++this.nextId, refreshSessions: this.refreshSessions, refreshSubagents: this.refreshSubagents,
+        refreshSessionModel: this.refreshSessionModel }, current),
     ];
   }
 
@@ -276,11 +280,32 @@ export class WebChatController {
     this.update({
       loading: false, historyTruncated: false, creationUncertain: false, sessionId: snapshot.session_id, storedSessionId: persistedId,
       modelConfirmation: this.state.sessionId === snapshot.session_id ? this.state.modelConfirmation : null,
+      sessionModel: this.state.storedSessionId === persistedId ? this.state.sessionModel : null,
       info: snapshot.info, messages, busy: !!(resumed.running || snapshot.info.running), stopping: false,
       subagents: reconcileSubagentSnapshot(this.subagentHistory.get(persistedId) || this.state.subagents, []),
       requests: this.state.requests.filter((request) => request.params.session_id === snapshot.session_id &&
         (!Array.isArray(resumed.open_requests) || resumed.open_requests.some(entry => entry.id === request.id))),
     });
+    void this.refreshSessionModel();
+  };
+
+  refreshSessionModel = async (force = false): Promise<void> => {
+    const { storedSessionId, sessionId } = this.state;
+    if (!storedSessionId || !sessionId || this.state.switchingModel || (!force && (this.modelLoadedId === storedSessionId || this.modelRead))) return;
+    this.modelRead?.abort();
+    const read = new AbortController();
+    this.modelRead = read;
+    const generation = this.generation;
+    try {
+      const detail = await api.getSessionDetail(storedSessionId, this.options.profile, read.signal);
+      if (read.signal.aborted || generation !== this.generation || sessionId !== this.state.sessionId || storedSessionId !== this.state.storedSessionId || detail.id !== storedSessionId) return;
+      this.modelLoadedId = storedSessionId;
+      this.update({ sessionModel: storedSessionModel(detail.model_config, detail.model) });
+    } catch {
+      // Model metadata is optional: REST failure must not interrupt the WS conversation.
+    } finally {
+      if (this.modelRead === read) this.modelRead = null;
+    }
   };
 
   refreshSessions = async (): Promise<void> => {
@@ -364,6 +389,7 @@ export class WebChatController {
     if (this.options.allowWork?.() === false) return null;
     const value = sessionModelValue(provider, model);
     const generation = this.generation;
+    this.modelRead?.abort();
     this.update({ switchingModel: true, error: null });
     try {
       const result = await this.requestSession<ConfigSetResult>("config.set", {
@@ -374,6 +400,7 @@ export class WebChatController {
       if (!result.confirm_required) this.update({
         modelConfirmation: null,
         info: { ...this.state.info, provider, model: typeof result.value === "string" ? result.value : model },
+        sessionModel: { provider, model: typeof result.value === "string" ? result.value : model },
         notice: result.warning || null,
       });
       return result;
@@ -400,6 +427,7 @@ export class WebChatController {
         },
       }, command, copy);
       if (generation !== this.generation) return { accepted: false };
+      if (result.accepted) void this.refreshSessionModel(true);
       void this.refreshSessions();
       return result;
     } catch (error) {
@@ -509,6 +537,8 @@ export class WebChatController {
   stop = () => {
     this.manualStop = true;
     this.responders = new WeakSet();
+    this.modelRead?.abort(); this.modelRead = null;
+    this.modelLoadedId = null;
     if (this.publishTimer) clearTimeout(this.publishTimer); this.publishTimer = null;
     this.clearReconnectTimer();
     this.update({ reconnectCountdown: null });

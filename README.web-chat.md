@@ -188,11 +188,19 @@ retry/backoff schedule and a manual reconnect action.
 The composer model label opens a compact provider -> model cascader backed by
 session-scoped model.options. Choosing a model calls config.set with an explicit
 provider and --session, preserving profile defaults and other conversations.
-The menu has two single-line columns; hover or select a provider, then choose its
+The menu has two single-line columns; click a provider (or activate it with Enter/Space), then choose its
 model. The label shows provider/model (including custom:<name> slugs). Switching blocks
 duplicate picks, prompt submission and closing/replacing the target tab until acknowledged;
 server-required expensive-model confirmations are kept. Active turns, image
 staging and pending human requests must finish before a model can be changed.
+
+The displayed selection prefers `model_config` from the existing profile-scoped
+`GET /api/sessions/{stored_id}` detail endpoint. Serialized JSON and object configs
+are both supported; only the provider/model identity is retained per controller.
+Warm tab and route switches reuse this identity without another detail request.
+Missing, malformed or unavailable metadata falls back to the WS/catalog display.
+Successful model changes update the selection immediately and invalidate older
+detail requests. This affects display only, not the backend's actual request route.
 
 For development use the existing Vite proxy (pnpm dev) and configure
 HERMES_DASHBOARD_URL for the running Dashboard/Serve backend. Install with

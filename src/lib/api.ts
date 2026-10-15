@@ -462,9 +462,10 @@ export const api = {
         profile,
       ),
     ),
-  getSessionDetail: (id: string, profile = getManagementProfile()) =>
+  getSessionDetail: (id: string, profile = getManagementProfile(), signal?: AbortSignal) =>
     fetchJSON<SessionInfo>(
       appendProfileParam(`/api/sessions/${encodeURIComponent(id)}`, profile),
+      { signal },
     ),
   /**
    * Directories a FRESH dashboard chat may start in: the profile's explicit
@@ -2119,6 +2120,7 @@ export interface SessionInfo {
   id: string;
   source: string | null;
   model: string | null;
+  model_config?: string | Record<string, unknown> | null;
   title: string | null;
   started_at: number;
   ended_at: number | null;
