@@ -125,7 +125,7 @@ Web wrapper 向现有共享客户端构造器传 replay=false，工作区是唯�
 3. replay 截断、缺口、无有效 seq/epoch、历史缓存不存在：不把补发后缀加入不完整历史，改为现有 resume 或 activate 的完整返回状态。
 4. 4009、请求拒绝、网络超时保留局部错误并可重试，不将恢复 A 的失败转换成整个工作区断线。
 
-**运行中冷恢复的保守规则：** 对当前含 inflight 的未可信快照，不将同时抵达的 delta/interim/tool 文本气泡直接拼进快照正文。实时事件仍更新 status、子代理/工具活动摘要、有限当前预览和请求。当前可见会话最多每秒一个、无重叠的 activate(omit_messages=false) 刷新，用完整返回替换临时正文；后台不做这项全量轮询。明确显示“正在同步”，不能宣传此状态逐 token 无损直播。
+**运行中冷恢复的保守规则：** 对当前含 inflight 的未可信快照，不将同时抵达的 assistant delta/interim 直接拼进快照正文。实时事件仍更新 status、子代理、有限当前预览和请求；工具生命周期按调用ID独立投影，旧快照省略的显示侧工具结果按D14保留。当前可见会话最多每秒一个、无重叠的 activate(omit_messages=false) 刷新，用完整返回替换临时正文；后台不做这项全量轮询。明确显示“正在同步”，不能宣传此状态逐 token 无损直播。
 
 收到 message.complete 以其完整最终正文替换对应临时回复，随后再取空闲的完整返回对账。终态可能先于 running=false 到达：最多 3 次有限延迟校准，仍在运行/再次开始任务则保留 snapshot-follow，不伪造 ready。稳定已有历史加上后续明确的新 message.start 可作为新的实时回合基线；如果有缓冲/边界不明，继续保守状态。
 
@@ -221,6 +221,16 @@ frames及每个held队列自维护字节计数，入队只计量新事件；排�
 历史媒体缓存归WebChatWorkspaceProvider持有，视图通过可释放的读租用共享请求。最后一个读取者离开时取消未完成请求；完成结果按profile/path进入有界LRU，仅保存已有API返回的data URL字符串。淘汰移除引用即可，无新增object URL。profile替换/真正退出清空并取消所有旧请求；大于单缓存预算的图片仍可显示但不保留。32MiB估算为字符串长度乘2，不代表图片解码内存或单次响应峰值。
 
 Files初次加载、导航和刷新使用同一取消/最新响应校验入口，响应更新canonical path不再触发第二轮请求。Logs筛选变化取消旧请求，轮询无重叠并遵循document可见性；用户离开底部时保留阅读位置。模型与页签浮层忽略内部滚动，外部滚动/resize经rAF合并且位置不变不提交状态，Window事件目标须兼容。
+
+### D14. 2026-10-20 流式消息与工具显示稳定性
+
+groupChatTranscript只合并连续工具行。assistant、commentary和reasoning一直使用同一MessageRow组件，不因tool.start或正文从空变非空而搬入折叠组。工具组以第一个工具行的稳定显示ID为key；单个调用的details状态不随工具完成或快照校准重置。
+
+web-chat-tools.ts统一正常流式和cold-follow的工具投影，保留调用ID、服务端turn_started_at及尚未进入历史的标记。cold工具事件独立于正文delta处理，closed记录仍不保留重正文。工具ID复用时已观察的独立调用使用不同显示ID；快照出现重复ID时不猜测结果归属。
+
+web-chat-transcript.ts只对显示metadata对账：相同stored scope下优先使用durable row_id；无durable行身份的工具结果仅在同runtime、调用ID无歧义且无已知回合冲突时复用。不按工具名称、参数或相同正文做身份匹配。未提交调用只能在同runtime、相同可靠turn_started_at且仍运行时保留；缺失/冲突标识继续保守显示。结果直接归现有messages窗口，没有绕过LRU/行数/字节预算的结果Map，也不写入storage。
+
+inflight渲染ID使用runtime、已有turn_started_at和角色；老服务端缺时间戳时使用runtime内的当前渲染槽，只替换正文，不据此拼接文本或关联未知工具。不新增协议或服务器字段，不改变WS、恢复并发、snapshot-follow轮询及终态校准策略。
 
 ## Risks / Trade-offs
 

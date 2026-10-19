@@ -43,10 +43,9 @@ export function reduceSessionEvent(binding: SessionBinding, event: GatewayEvent)
     const payload = event.payload as { text?: string } | undefined;
     if ((binding.visible || binding.pendingOpen) && payload?.text) binding.preview = (binding.preview + payload.text).slice(-CHAT_LIMITS.previewBytes / 2);
     if (event.type === "tool.start" || event.type === "tool.complete") {
-      const tool = event.payload as { name?: string; summary?: string } | undefined;
-      binding.controller.patchState({ notice: (tool?.summary || tool?.name || "").slice(-2000) || null });
+      if (binding.visible || binding.pendingOpen) binding.controller.applyToolEvent(event as GatewayEvent<"tool.start"> | GatewayEvent<"tool.complete">, true);
     }
-    // Subagents/requests/status continue independently. Untrusted snapshot bodies are never appended.
+    // ID-addressed tool lifecycle is independent of the untrusted text snapshot.
   } else {
     if (event.type === "message.start" && !state.busy && binding.projection === "snapshot-follow" && binding.calibration === 0 && binding.settledBaseline)
       binding.projection = "live-valid";

@@ -3,9 +3,15 @@ import type { ConnectionState } from "./gatewayClient";
 import { imageMessageContent, type ChatImage } from "./web-chat-images";
 import type { WebChatSubagent } from "./web-chat-subagents";
 import type { WebChatModelIdentity } from "./web-chat-models";
+import { toolResultFailed } from "./web-chat-activity";
 
 export interface ChatMessage {
   id: string;
+  rowId?: number;
+  toolCallId?: string;
+  historyTurnId?: number;
+  toolTurnStartedAt?: number;
+  pendingSnapshot?: boolean;
   role: "user" | "assistant" | "commentary" | "tool" | "command";
   text: string;
   images?: ChatImage[];
@@ -68,12 +74,22 @@ export function initialWebChatState(): WebChatState {
 }
 
 export function transcriptMessages(rows: TranscriptMessage[]): ChatMessage[] {
+  let historyTurnId: number | undefined;
+  const occurrences = new Map<string, number>();
   return rows.flatMap((row, index): ChatMessage[] => {
     if (row.display_kind === "hidden") return [];
     if (!["user", "assistant", "tool"].includes(row.role)) return [];
-    const content = row.role === "user" ? imageMessageContent(row.text ?? "") : { text: row.text ?? "", images: [] };
+    if (row.role === "user") historyTurnId = row.row_id ?? undefined;
+    const toolCallId = row.role === "tool" ? row.tool_call_id || undefined : undefined;
+    const callKey = historyTurnId + ":" + toolCallId;
+    const occurrence = occurrences.get(callKey) ?? 0;
+    if (toolCallId) occurrences.set(callKey, occurrence + 1);
+    const toolId = toolCallId ? "tool:" + (historyTurnId == null ? "" : "user-" + historyTurnId + ":") + toolCallId + (occurrence ? ":occ-" + occurrence : "") : null;
+    const text = row.role === "tool" ? row.text || (row.content != null ? toolResultText(row.content) : "") : row.text ?? "";
+    const content = row.role === "user" ? imageMessageContent(text) : { text, images: [] };
     return [{
-      id: "history:" + (row.row_id ?? index),
+      id: row.row_id != null ? "history:" + row.row_id : toolId ?? "history:" + index,
+      rowId: row.row_id ?? undefined, toolCallId, historyTurnId,
       role: row.role as ChatMessage["role"],
       text: content.text,
       images: content.images.length ? content.images : undefined,
@@ -83,6 +99,7 @@ export function transcriptMessages(rows: TranscriptMessage[]): ChatMessage[] {
       toolArgs: row.args ?? undefined,
       toolContext: row.context ?? undefined,
       toolLabels: row.labels ?? undefined,
+      ...(row.role === "tool" ? { status: toolResultFailed(row.content) ? "error" : "complete" } : {}),
     }];
   });
 }

@@ -10,25 +10,18 @@ interface ToolCallGroupProps { rows: ChatMessage[]; copy: WebChatCopy }
 export function ToolCallGroup({ rows, copy }: ToolCallGroupProps) {
   const [expanded, setExpanded] = useState(true);
   const tools = rows.filter((row) => row.role === "tool");
-  const reasoning = [...new Set(rows.map((row) => row.reasoning?.trim()).filter(Boolean))].join("\n\n");
   const running = tools.filter((row) => row.status === "working").length;
   const failures = tools.filter((row) => row.status === "error").length;
 
   return <details data-chat-detail={rows[0].id + ":activity"} className="group/activity min-w-0 pl-10" open={expanded} onToggle={(event) => setExpanded(event.currentTarget.open)}>
     <summary className="flex cursor-pointer list-none items-center gap-2 py-1 text-xs text-text-secondary [&::-webkit-details-marker]:hidden">
       <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 transition-transform group-open/activity:rotate-90" />
-      <span>{tools.length ? copy.toolCalls + " (" + tools.length + ")" : reasoning ? copy.reasoning : copy.working}</span>
+      <span>{copy.toolCalls + " (" + tools.length + ")"}</span>
       {!!running && <span className="ml-auto flex items-center gap-1 text-primary"><LoaderCircle aria-hidden className="h-3 w-3 animate-spin" />{copy.working}</span>}
       {!!failures && <span className="text-destructive">{copy.failed} · {failures}</span>}
     </summary>
     <div className="ml-1.5 mt-1 min-w-0 border-l border-midground/20 pl-3">
-      {reasoning && <details data-chat-detail={rows[0].id + ":reasoning"} className="mb-2 min-w-0 text-text-tertiary">
-        <summary className="cursor-pointer text-[11px] leading-5">{copy.reasoning}</summary>
-        <p className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs leading-relaxed">{reasoning}</p>
-      </details>}
-      {rows.map((row) => row.role === "tool"
-        ? <ToolCallRow key={row.id} tool={row} copy={copy} />
-        : row.text.trim() ? <p key={row.id} className="mb-2 whitespace-pre-wrap break-words text-xs leading-relaxed text-text-secondary">{row.text}</p> : null)}
+      {tools.map((row) => <ToolCallRow key={row.id} tool={row} copy={copy} />)}
     </div>
   </details>;
 }

@@ -51,6 +51,41 @@ afterEach(async () => {
 });
 
 describe("Web Chat over the real JSON-RPC client", () => {
+  it("keeps streamed reasoning and text mounted when tools start and an earlier tool group is collapsed", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval"] });
+    const publish = () => act(async () => { await vi.advanceTimersByTimeAsync(20); });
+    app = await mountEditor(<WebChatPage />, undefined, true);
+    await input(composer(), "Inspect the project"); await press("Send");
+    await act(async () => { latest().event("reasoning.delta", { text: "Reasoning before the tools" }); });
+    await publish();
+    const firstReply = document.querySelector('article[aria-label="Hermes"]');
+    expect(firstReply).not.toBeNull();
+    const reasoning = firstReply!.querySelector<HTMLDetailsElement>("details")!;
+    await act(async () => { reasoning.open = true; reasoning.dispatchEvent(new Event("toggle")); });
+    await act(async () => { latest().event("message.delta", { text: "Checking the project" }); });
+    await publish();
+    expect(document.querySelector('article[aria-label="Hermes"]')).toBe(firstReply);
+    expect(reasoning.open).toBe(true);
+    await act(async () => {
+      latest().event("tool.start", { tool_id: "first-tool", name: "terminal" });
+      latest().event("tool.complete", { tool_id: "first-tool", name: "terminal", result_text: "First result" });
+    });
+    await publish();
+    expect(document.querySelector('article[aria-label="Hermes"]')).toBe(firstReply);
+    expect(reasoning.open).toBe(true);
+    const group = document.querySelector<HTMLDetailsElement>('details[data-chat-detail$=":activity"]')!;
+    await act(async () => { group.open = false; group.dispatchEvent(new Event("toggle")); });
+    await act(async () => { latest().event("message.delta", { text: "Now checking the next file" }); });
+    await publish();
+    const secondReply = [...document.querySelectorAll('article[aria-label="Hermes"]')].at(-1)!;
+    await act(async () => { latest().event("tool.start", { tool_id: "second-tool", name: "read_file" }); });
+    await publish();
+    expect([...document.querySelectorAll('article[aria-label="Hermes"]')].at(-1)).toBe(secondReply);
+    expect(secondReply.textContent).toContain("Now checking the next file");
+    expect(secondReply.closest("details")).toBeNull();
+    expect(group.open).toBe(false);
+  });
+
   it("reuses history media across tabs/routes and releases the cache on profile replacement", async () => {
     const stored = seedSession("image-history", "Image history");
     stored.messages[0].text += "\n@image:/images/history.png";

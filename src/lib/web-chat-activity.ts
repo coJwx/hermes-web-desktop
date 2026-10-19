@@ -4,24 +4,19 @@ interface MessageBlock { kind: "message"; id: string; message: ChatMessage }
 interface ActivityBlock { kind: "activity"; id: string; rows: ChatMessage[] }
 export type ChatTranscriptBlock = MessageBlock | ActivityBlock;
 
-/** Keep public replies in order; fold internal steps into one compact activity trail. */
+/** Only consecutive tools fold together; streaming replies never move into a collapsed trail. */
 export function groupChatTranscript(messages: ChatMessage[]): ChatTranscriptBlock[] {
   const blocks: ChatTranscriptBlock[] = [];
   let activity: ChatMessage[] = [];
   const flush = () => {
     if (!activity.length) return;
-    blocks.push({ kind: "activity", id: "activity:" + (activity.find((row) => row.role === "tool")?.id ?? activity[0].id), rows: activity });
+    blocks.push({ kind: "activity", id: "activity:" + activity[0].id, rows: activity });
     activity = [];
   };
-  messages.forEach((row, index) => {
-    const terminalFailure = row.status === "error" || row.status === "interrupted";
-    const internalAssistant = row.role === "assistant" && !terminalFailure &&
-      (!row.text.trim() || (!row.status && messages[index + 1]?.role === "tool"));
-    if (row.role === "tool" || row.role === "commentary" || internalAssistant) {
-      if (row.role === "tool" || row.text.trim() || row.reasoning?.trim()) activity.push(row);
-      return;
-    }
+  messages.forEach((row) => {
+    if (row.role === "tool") { activity.push(row); return; }
     flush();
+    if (row.role === "assistant" && !row.text.trim() && !row.reasoning?.trim() && row.status !== "error" && row.status !== "interrupted") return;
     blocks.push({ kind: "message", id: row.id, message: row });
   });
   flush();

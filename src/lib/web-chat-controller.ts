@@ -11,6 +11,8 @@ import { detachChatImages, ImageStagingError, stageChatImages, type ChatImage } 
 import { sessionModelValue, storedSessionModel } from "./web-chat-models";
 import { api } from "./api";
 import { reconcileSubagentSnapshot, type WebChatSubagent } from "./web-chat-subagents";
+import { inflightMessageId, reconcileSnapshotMessages } from "./web-chat-transcript";
+import { projectToolEvent, type WebChatToolEvent } from "./web-chat-tools";
 
 import { cacheHistoryAppend, cacheHistoryReplacement, requestsBytes } from "./web-chat-cache";
 
@@ -210,7 +212,7 @@ export class WebChatController {
         patchMessage: (id, patch) => this.patchMessage(id, patch), assistant: () => this.assistant(),
         assistantId: () => this.assistantId, clearAssistant: () => { this.assistantId = null; },
         nextId: () => ++this.nextId, refreshSessions: this.refreshSessions, refreshSubagents: this.refreshSubagents,
-        refreshSessionModel: this.refreshSessionModel }, current),
+        refreshSessionModel: this.refreshSessionModel, applyToolEvent: this.applyToolEvent }, current),
     ];
   }
 
@@ -265,16 +267,26 @@ export class WebChatController {
 
   patchState = (patch: Partial<WebChatState>) => this.update(patch);
 
+  applyToolEvent = (event: WebChatToolEvent, beforeInflight = false) => {
+    this.update({ messages: projectToolEvent(this.state.messages, event, () => ++this.nextId,
+      this.state.info.turn_started_at, beforeInflight ? this.assistantId : null) });
+  };
+
   restoreSnapshot = (snapshot: SessionCreateResult | SessionResumeResult, storedId: string | null = this.state.storedSessionId) => {
     const resumed = snapshot as SessionResumeResult;
     const persistedId = snapshot.stored_session_id ?? resumed.resumed ?? resumed.session_key ?? snapshot.info.stored_session_id ?? storedId ?? snapshot.session_id;
+    const sameStored = this.state.storedSessionId === persistedId;
+    const sameRuntime = sameStored && this.state.sessionId === snapshot.session_id;
+    const turnStartedAt = resumed.turn_started_at ?? snapshot.info.turn_started_at;
+    const running = !!(resumed.running || snapshot.info.running);
     this.assistantId = null;
-    const messages = transcriptMessages(snapshot.messages);
+    const messages = reconcileSnapshotMessages(transcriptMessages(snapshot.messages), sameStored ? this.state.messages : [],
+      { sameRuntime, running, turnStartedAt });
     if (resumed.inflight?.user && messages.findLast((row) => row.role === "user")?.text !== resumed.inflight.user) {
-      messages.push({ id: "user:" + ++this.nextId, role: "user", text: resumed.inflight.user, timestamp: resumed.turn_started_at ?? undefined });
+      messages.push({ id: inflightMessageId(snapshot.session_id, turnStartedAt, "user"), role: "user", text: resumed.inflight.user, timestamp: resumed.turn_started_at ?? undefined });
     }
     if (resumed.inflight?.assistant) {
-      this.assistantId = "assistant:" + ++this.nextId;
+      this.assistantId = inflightMessageId(snapshot.session_id, turnStartedAt, "assistant");
       messages.push({ id: this.assistantId, role: "assistant", text: resumed.inflight.assistant, status: resumed.running ? "working" : "complete" });
     }
     this.options.remember(persistedId);
@@ -282,7 +294,7 @@ export class WebChatController {
       loading: false, historyTruncated: false, creationUncertain: false, sessionId: snapshot.session_id, storedSessionId: persistedId,
       modelConfirmation: this.state.sessionId === snapshot.session_id ? this.state.modelConfirmation : null,
       sessionModel: this.state.storedSessionId === persistedId && this.state.sessionId === snapshot.session_id ? this.state.sessionModel : null,
-      info: snapshot.info, messages, busy: !!(resumed.running || snapshot.info.running), stopping: false,
+      info: { ...snapshot.info, turn_started_at: turnStartedAt ?? null }, messages, busy: running, stopping: false,
       subagents: reconcileSubagentSnapshot(this.subagentHistory.get(persistedId) || this.state.subagents, []),
       requests: this.state.requests.filter((request) => request.params.session_id === snapshot.session_id &&
         (!Array.isArray(resumed.open_requests) || resumed.open_requests.some(entry => entry.id === request.id))),

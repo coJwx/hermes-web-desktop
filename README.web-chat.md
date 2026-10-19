@@ -126,12 +126,23 @@ creation time (started_at, not last activity), message count and source
 (gui/tui/api_server/etc.). Missing metadata is omitted. The compact trigger shows
 only the title; the current full session ID remains outside the dropdown.
 
-Tool calls use compact, collapsible activity trails with argument previews rather
-than separate large cards. Reasoning-only steps share one folded section. Expand
-an individual call to inspect arguments and output supplied by the server; live
-completion preserves start-time context and displays duration/error status.
-Current session.resume history snapshots supply tool arguments/context but omit
-outputs, so restored calls explicitly say when output is unavailable.
+Only consecutive tool calls use compact, collapsible activity trails. Replies,
+commentary and reasoning stay in independent message rows, so a tool boundary or
+the first text delta cannot move visible text into a collapsed group or remount
+its reasoning details. Expand a call to inspect arguments and output; completion
+preserves its start-time context and displays duration/error status.
+Compact history can omit tool output. Existing output is retained for an
+unambiguous call in the same runtime, or for a matching durable message row.
+Duplicate/missing call IDs and different conversations are not guessed from names
+or arguments. Outputs never received by this workspace remain unavailable.
+
+Cold recovery still replaces assistant text rather than appending concurrent
+deltas. In-flight render IDs stay stable for the runtime/turn timestamp; older
+peers without that timestamp use a current-message render slot, not an inferred
+turn identity. Tool lifecycle events update independently, including while cold.
+Uncommitted tool rows survive an intervening compact snapshot only when a server
+turn timestamp confirms the same running turn. All retained rows remain subject
+to the existing history/cache limits; no second result cache is introduced.
 
 A collapsed Subagents strip appears above the composer when children are known.
 The read-only first version shows goals, model/status, tool counts and last tool;

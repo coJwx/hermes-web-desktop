@@ -1,0 +1,47 @@
+scope:
+  change: multiplex-web-chat-sessions
+  stage: apply
+  risk: strict
+  date: 2026-10-20
+  fingerprint: "sha256:e3c7b9db06e80abc79e2cee1e469072b4ddcd009e349834fd227bcc423b6ce68"
+  fingerprint_algorithm: "sorted relative source/test path + LF + raw file bytes, concatenated"
+  files:
+    - src/components/web-chat/ToolCallGroup.tsx
+    - src/lib/web-chat-activity.test.ts
+    - src/lib/web-chat-activity.ts
+    - src/lib/web-chat-controller.ts
+    - src/lib/web-chat-session-events.ts
+    - src/lib/web-chat-state.ts
+    - src/lib/web-chat-tools.ts
+    - src/lib/web-chat-transcript.test.ts
+    - src/lib/web-chat-transcript.ts
+    - src/lib/web-chat-workspace-recovery.ts
+    - src/pages/WebChatPage.test.tsx
+evidence:
+  - check: "Pre-fix tool-output and in-flight identity regression tests"
+    result: pass
+    summary: "Both invariants failed before the fix: compact snapshots erased a received result and each snapshot assigned a new assistant ID. The prior read-only DOM probes also reproduced message regrouping and lost reasoning expansion."
+  - check: "pnpm exec vitest run src/lib/web-chat src/components/web-chat src/pages/WebChatPage.test.tsx src/pages/FilesPage.test.tsx src/pages/LogsPage.test.tsx src/hooks/useWebChatImages.test.tsx src/lib/gatewayClient.test.ts src/lib/api src/pages/ConfigPage.test.tsx src/pages/ChatPage.test.tsx src/contexts/ProfileProvider.test.tsx"
+    result: pass
+    summary: "Final run: 24 files, 124 tests. Includes stable DOM reasoning/message nodes, tool output/error/duration retention, cold lifecycle/pending rows, snapshot-text replacement, represented lifecycle deduplication, duplicate/missing IDs and conversation/turn isolation."
+  - check: "pnpm typecheck"
+    result: pass
+    summary: "No diagnostics; final build also ran tsc -b against the final source."
+  - check: "pnpm build"
+    result: pass
+    summary: "Final production build succeeded with 2561 transformed modules. Output remains under web/dist."
+  - check: "openspec validate multiplex-web-chat-sessions --type change --strict --json --no-interactive"
+    result: pass
+    summary: "One valid change, zero issues."
+  - check: "Authenticated remote and fixed-device browser CPU/heap/latency verification"
+    result: not-run
+    summary: "No remote sessions, server/Rust/shared-protocol files or deployment changes. DOM/wire fixtures do not establish actual deployed behavior or measured rendering latency."
+invalidates_when:
+  - Any listed source or test changes.
+  - Session/RPC identities, compact-history fields, turn timestamp semantics, cache budgets or shared client behavior change.
+limitations:
+  - Missing/ambiguous call identity is not reconstructed from tool names, arguments or repeated text.
+  - Pending tools absent from a snapshot require a matching confirmed running-turn timestamp and runtime.
+  - A legacy in-flight render slot is not proof of turn identity or exactly-once snapshot/delta delivery.
+  - Retained output lives within the existing bounded transcript; discarded or never-received output cannot be restored locally.
+  - Existing remote/native acceptance tasks remain incomplete; terminal canvas warnings are JSDOM limitations.

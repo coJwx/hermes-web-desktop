@@ -81,3 +81,12 @@
 - [x] 11.5 执行相关行为回归、typecheck和build，记录本地证据及真实远端/native/CPU/heap未验证边界。
 
 本轮证据见evidence/cache-request-fixes-verification.yaml；1.2和8.3的远端/native/固定设备验收仍未执行。
+
+## 12. 2026-10-20 工具与流式消息稳定性修复
+
+- [x] 12.1 回复/推理/过程说明保持独立消息节点，只有连续工具进入折叠组；验证首个正文delta及tool.start不卸载或隐藏已显示消息。
+- [x] 12.2 复用已有工具/历史身份对账工具输出、耗时和失败状态；重复ID、缺失ID、跨会话/回合不按名称或参数猜测。
+- [x] 12.3 稳定inflight渲染ID；cold工具生命周期独立投影，尚未进入快照的调用仅在相同已确认运行回合内保留；维持原有正文替换和预算。
+- [x] 12.4 补回归、执行typecheck/build/OpenSpec校验并记录证据；不将本地fixture当作真实服务器或浏览器性能验收。
+
+本轮证据见evidence/stream-render-stability-verification.yaml，远程与固定设备验收仍沿用未完成边界。

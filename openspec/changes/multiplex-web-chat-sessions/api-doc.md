@@ -137,3 +137,7 @@ result的已有events、latest_seq、truncated、epoch、open_requests用于恢�
 历史图片仍读取既有 `GET /api/media?profile=...&path=...`。工作区按profile/path共享未完成读取和完成的data URL字符串，LRU最多64项/估算32MiB；仅最后一个观察者离开时取消在途请求。超大响应可显示但不缓存；profile替换/真正退出清空缓存，迟到响应不重新填充。无新增object URL或服务端缓存协议，不改变图片草稿预算。
 
 Files沿用 `GET /api/files?path=...`，导航与刷新使用单一loader，取消并忽略旧请求。Logs沿用 `GET /api/logs?...`，切换筛选取消旧请求，自动刷新不重叠且在document隐藏时不发起新轮询。取消只结束客户端读取，不发送新的服务端控制方法。
+
+## 11. 流式与历史显示对账（2026-10-20）
+
+复用已有 `tool.start/complete.tool_id`、历史 `tool_call_id/row_id/content` 和 `turn_started_at`。字段缺失时不向服务器索取新能力，也不再生成共享协议。历史content存在时渲染该结果，省略时仅复用可确认调用的已知显示数据；重复/缺失ID、回合冲突或其他stored/runtime的数据不按名称和参数拼接。cold-follow仍替换assistant正文，工具调用独立更新；相同运行回合的inflight节点不再逐次分配新ID。

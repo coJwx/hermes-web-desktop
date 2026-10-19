@@ -204,3 +204,19 @@ Files navigation SHALL load once per explicit navigation/refresh and discard can
 #### Scenario: A log reader scrolls upward during refresh
 - **WHEN** auto-refresh completes while the reader is away from the bottom
 - **THEN** their position is preserved; returning to the bottom enables following subsequent output
+
+### Requirement: Streaming display remains stable across tools and compact snapshots
+
+Replies, commentary and reasoning SHALL remain independent message rows when tools begin; only consecutive tool calls SHALL enter collapsible tool groups. An existing reasoning node MUST NOT remount when its first text arrives. Repeated in-flight snapshots SHALL reuse runtime/turn-scoped render identities while replacing text. Tool lifecycle MAY update during cold-follow, independently of untrusted assistant deltas. Previously received tool output MAY be retained only through a durable row identity or an unambiguous same-runtime call identity without known turn conflict; missing/reused IDs MUST NOT be guessed from names, arguments or body text. Pending calls absent from history SHALL survive only a matching confirmed running turn and remain within the existing transcript/cache budgets.
+
+#### Scenario: Text after a collapsed tool group
+- **WHEN** an assistant message streams after a collapsed tool group and another tool starts
+- **THEN** the message remains visible in the same message node and the existing tool group stays collapsed
+
+#### Scenario: Repeated compact snapshots
+- **WHEN** running snapshots repeat with the same runtime and turn timestamp while omitting a known tool output
+- **THEN** the in-flight message keeps its render ID, assistant text is replaced without duplication, and an identifiable tool keeps its output, duration and failure state
+
+#### Scenario: Unidentifiable or conflicting tool rows
+- **WHEN** a snapshot lacks call identity, contains duplicate call IDs or belongs to another conversation or conflicting turn
+- **THEN** cached output is not attached by matching tool names or arguments; a pending tool from another running turn is not carried into the new snapshot

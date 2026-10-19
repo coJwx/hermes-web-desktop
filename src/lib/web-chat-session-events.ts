@@ -1,7 +1,6 @@
 import type { WebChatTransport } from "./web-chat-controller";
 import type { ChatMessage, WebChatState } from "./web-chat-state";
-import { toolResultText } from "./web-chat-state";
-import { toolResultFailed } from "./web-chat-activity";
+import type { WebChatToolEvent } from "./web-chat-tools";
 import { applySubagentEvent, SUBAGENT_EVENTS } from "./web-chat-subagents";
 
 interface SessionEventContext {
@@ -15,6 +14,7 @@ interface SessionEventContext {
   refreshSessions: () => Promise<void>;
   refreshSubagents: () => Promise<boolean>;
   refreshSessionModel: (force?: boolean) => Promise<void>;
+  applyToolEvent: (event: WebChatToolEvent) => void;
 }
 
 export function attachSessionEvents(client: WebChatTransport, context: SessionEventContext, current: () => boolean) {
@@ -75,29 +75,15 @@ export function attachSessionEvents(client: WebChatTransport, context: SessionEv
       }),
       client.on("tool.start", (event) => {
         if (!own(event.session_id) || !event.payload) return;
-        const p = event.payload;
         // A tool boundary seals the current reasoning/preamble, so final text appears AFTER tools.
         const preceding = context.state().messages.find((message) => message.id === context.assistantId());
         if (preceding) context.patchMessage(preceding.id, { role: preceding.text.trim() ? "commentary" : "assistant", status: "complete" });
         context.clearAssistant();
-        const row: ChatMessage = {
-          id: "tool:" + p.tool_id, role: "tool", name: p.name, text: "", status: "working",
-          toolArgs: p.args ?? undefined, toolContext: p.context ?? p.preview ?? undefined, toolLabels: p.labels ?? undefined,
-        };
-        context.update({ messages: [...context.state().messages.filter((item) => item.id !== row.id), row] });
+        context.applyToolEvent(event);
       }),
       client.on("tool.complete", (event) => {
         if (!own(event.session_id) || !event.payload) return;
-        const p = event.payload;
-        const row: ChatMessage = {
-          id: "tool:" + p.tool_id, role: "tool", name: p.name,
-          text: p.result_text ?? (p.result === undefined ? p.summary ?? "" : toolResultText(p.result)),
-          status: toolResultFailed(p.result) ? "error" : "complete", resultSummary: p.summary ?? undefined,
-          durationSeconds: p.duration_s ?? undefined,
-          ...(p.args ? { toolArgs: p.args } : {}), ...(p.labels ? { toolLabels: p.labels } : {}),
-        };
-        if (context.state().messages.some((item) => item.id === row.id)) context.patchMessage(row.id, row);
-        else context.update({ messages: [...context.state().messages, row] });
+        context.applyToolEvent(event);
       }),
       client.on("notification.show", (event) => {
         if (own(event.session_id)) context.update({ notice: event.payload?.text ?? null });

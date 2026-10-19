@@ -3,7 +3,7 @@ import { groupChatTranscript, toolCallTitle, toolResultFailed } from "./web-chat
 import { transcriptMessages, type ChatMessage } from "./web-chat-state";
 
 describe("web chat activity projection", () => {
-  it("groups reasoning and tool steps without crossing user turns or dropping call arguments", () => {
+  it("keeps reasoning messages outside tool groups without crossing user turns or dropping arguments", () => {
     const command = { command: "git status --short" };
     const rows = transcriptMessages([
       { role: "user", text: "Inspect the project" },
@@ -17,7 +17,7 @@ describe("web chat activity projection", () => {
       { role: "assistant", text: "Search summary" },
     ]);
     const blocks = groupChatTranscript(rows);
-    expect(blocks.filter((block) => block.kind === "message").map((block) => block.message.text))
+    expect(blocks.filter((block) => block.kind === "message").map((block) => block.message.text).filter(Boolean))
       .toEqual(["Inspect the project", "Project summary", "Now search", "Search summary"]);
     const activity = blocks.filter((block) => block.kind === "activity");
     expect(activity.flatMap((block) => block.rows.filter((row) => row.role === "tool")))
@@ -27,7 +27,9 @@ describe("web chat activity projection", () => {
     // A preview is not an output: current resume snapshots omit tool results.
     expect(firstTool.toolContext).toBe(command.command);
     expect(firstTool.text).toBe("");
-    expect(activity[0].rows.some((row) => row.reasoning)).toBe(true);
+    expect(blocks.filter(block => block.kind === "message").flatMap(block => block.message.reasoning ? [block.message.reasoning] : []))
+      .toEqual(["Check the working tree", "Read the documentation"]);
+    expect(activity.every(block => block.rows.every(row => row.role === "tool"))).toBe(true);
     expect(activity[1].rows.every((row) => row.name !== "terminal")).toBe(true);
   });
 
@@ -40,6 +42,9 @@ describe("web chat activity projection", () => {
     expect(toolResultFailed({ exit_code: 1 })).toBe(true);
     expect(toolResultFailed({ error: "Permission denied" })).toBe(true);
     expect(toolResultFailed({ success: false })).toBe(true);
+    const restored = transcriptMessages([{ role: "tool", text: "", tool_call_id: "edit", content: { error: "Permission denied" } }])[0];
+    expect(restored.text).toContain("Permission denied");
+    expect(restored.status).toBe("error");
     const failed: ChatMessage = { id: "assistant:error", role: "assistant", text: "", status: "error" };
     expect(groupChatTranscript([tool, failed]).at(-1)).toMatchObject({ kind: "message", message: failed });
   });

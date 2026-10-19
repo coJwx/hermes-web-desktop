@@ -36,6 +36,7 @@ git remote -v
 | 跨路由工作区、草稿、刷新恢复 | `src/contexts/WebChatWorkspaceProvider.tsx`、`src/lib/web-chat-drafts.ts`、`src/lib/web-chat-persistence.ts` |
 | 单 WS、多会话事件、恢复与缓存 | `src/lib/web-chat-workspace.ts`、`web-chat-workspace-recovery.ts`、`web-chat-session-events.ts`、`web-chat-cache.ts` |
 | 历史图片缓存与请求租用 | `src/lib/web-chat-media.ts`、`src/components/web-chat/MessageImages.tsx`；由工作区 provider 持有并清理 |
+| 流式消息稳定性与工具快照对账 | `src/lib/web-chat-activity.ts`、`web-chat-tools.ts`、`web-chat-transcript.ts`；只折叠工具，不把已显示的回复移进工具组，不按工具名/参数猜身份 |
 | 会话发送、图片、模型、命令 | `src/lib/web-chat-controller.ts` 及 `web-chat-commands.ts`、`web-chat-images.ts` 等专题模块 |
 | REST/WS 认证与 base path | `src/lib/api.ts`、`src/lib/gatewayClient.ts`；共享实现固定在 `vendor/hermes-shared`，上游来源是父级 `apps/shared` |
 | 未保存状态、profile/原生退出 | `src/contexts/UnsavedChangesProvider.tsx`、`src/hooks/useUnsavedChanges.ts`、`src/lib/desktop-leave.ts` |
