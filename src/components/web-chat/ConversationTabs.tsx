@@ -75,7 +75,7 @@ export function ConversationTabs({ tabs, activeTabId, tabIdPrefix, panelId, sess
     };
     let frame = 0;
     const schedule = (event: Event) => {
-      if (panel.current?.contains(event.target as Node) || frame) return;
+      if (frame || (event.target instanceof Node && panel.current?.contains(event.target))) return;
       frame = requestAnimationFrame(() => { frame = 0; place(); });
     };
     place();

@@ -93,6 +93,11 @@ export default function FilesPage() {
   const [pendingDelete, setPendingDelete] = useState<ManagedFileEntry | null>(null);
   const [previewEntry, setPreviewEntry] = useState<ManagedFileEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const currentPathRef = useRef<string | undefined>(undefined);
+  const listRequest = useRef<AbortController | null>(null);
+  // Guards continuations that resume after navigating away (create/upload await
+  // then call load()): they must not start a request or set state after unmount.
+  const mounted = useRef(false);
 
   const activePath = listing?.path ?? currentPath ?? "";
   const canChangePath = listing?.can_change_path ?? false;
@@ -100,29 +105,37 @@ export default function FilesPage() {
   const headerPath = displayPath(listing?.locked_root ?? listing?.path ?? currentPath);
 
   const load = useCallback(
-    async (path = currentPath) => {
+    async (path = currentPathRef.current) => {
+      if (!mounted.current) return;
+      listRequest.current?.abort();
+      const request = new AbortController();
+      listRequest.current = request;
       setLoading(true);
       setError(null);
       try {
-        const result = await api.listFiles(path);
+        const result = await api.listFiles(path, request.signal);
+        if (request.signal.aborted || listRequest.current !== request) return;
+        currentPathRef.current = result.path;
         setListing(result);
         setCurrentPath(result.path);
         setPathInput(result.path);
       } catch (e) {
-        setError(errorMessage(e));
+        if (!request.signal.aborted && listRequest.current === request) setError(errorMessage(e));
       } finally {
-        setLoading(false);
+        if (listRequest.current === request && !request.signal.aborted) { listRequest.current = null; setLoading(false); }
       }
     },
-    [currentPath],
+    [],
   );
 
   useEffect(() => {
+    mounted.current = true;
     // Existing dashboard data pages fetch from effects; keep this local and explicit
     // until the shared lint profile is updated for async page loaders.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(currentPath);
-  }, [currentPath]); // eslint-disable-line react-hooks/exhaustive-deps
+    void load();
+    return () => { mounted.current = false; listRequest.current?.abort(); listRequest.current = null; };
+  }, [load]);
 
   useEffect(() => {
     setAfterTitle(
@@ -152,7 +165,7 @@ export default function FilesPage() {
 
   const openDirectory = (entry: ManagedFileEntry) => {
     if (entry.is_directory) {
-      setCurrentPath(entry.path);
+      void load(entry.path);
     }
   };
 
@@ -383,7 +396,7 @@ export default function FilesPage() {
           {listing?.parent && (
             <button
               type="button"
-              onClick={() => setCurrentPath(listing.parent ?? undefined)}
+              onClick={() => void load(listing.parent ?? undefined)}
               className="grid w-full min-w-[42rem] grid-cols-[minmax(12rem,1fr)_7rem_10rem_8rem] items-center gap-3 rounded-none border-0 border-b border-border/60 bg-transparent px-4 py-2 text-left text-sm transition hover:bg-background/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-midground"
             >
               <span className="flex min-w-0 items-center gap-2 font-mono text-text-secondary">

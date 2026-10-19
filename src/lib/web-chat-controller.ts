@@ -59,7 +59,8 @@ export class WebChatController {
   private manualStop = false;
   private publishTimer: ReturnType<typeof setTimeout> | null = null;
   private modelRead: AbortController | null = null;
-  private modelLoadedId: string | null = null;
+  private modelReadKey: string | null = null;
+  private modelLoadedKey: string | null = null;
 
   constructor(privateOptions: WebChatOptions) { this.options = privateOptions; }
   private readonly options: WebChatOptions;
@@ -280,7 +281,7 @@ export class WebChatController {
     this.update({
       loading: false, historyTruncated: false, creationUncertain: false, sessionId: snapshot.session_id, storedSessionId: persistedId,
       modelConfirmation: this.state.sessionId === snapshot.session_id ? this.state.modelConfirmation : null,
-      sessionModel: this.state.storedSessionId === persistedId ? this.state.sessionModel : null,
+      sessionModel: this.state.storedSessionId === persistedId && this.state.sessionId === snapshot.session_id ? this.state.sessionModel : null,
       info: snapshot.info, messages, busy: !!(resumed.running || snapshot.info.running), stopping: false,
       subagents: reconcileSubagentSnapshot(this.subagentHistory.get(persistedId) || this.state.subagents, []),
       requests: this.state.requests.filter((request) => request.params.session_id === snapshot.session_id &&
@@ -289,22 +290,29 @@ export class WebChatController {
     void this.refreshSessionModel();
   };
 
+  private modelScopeKey() {
+    return [this.state.storedSessionId, this.state.sessionId, this.generation, this.client?.connectionGeneration?.()].join("\0");
+  }
+
   refreshSessionModel = async (force = false): Promise<void> => {
     const { storedSessionId, sessionId } = this.state;
-    if (!storedSessionId || !sessionId || this.state.switchingModel || (!force && (this.modelLoadedId === storedSessionId || this.modelRead))) return;
+    const key = this.modelScopeKey();
+    if (!storedSessionId || !sessionId || this.state.switchingModel || (!force && (this.modelLoadedKey === key || (this.modelReadKey === key && !this.modelRead?.signal.aborted)))) return;
     this.modelRead?.abort();
     const read = new AbortController();
-    this.modelRead = read;
-    const generation = this.generation;
+    this.modelRead = read; this.modelReadKey = key;
+    // A different scope must not keep the previous runtime's label while the
+    // revalidated detail is in flight; unchanged scopes keep their model.
+    if (this.modelLoadedKey !== key && this.state.sessionModel) this.update({ sessionModel: null });
     try {
       const detail = await api.getSessionDetail(storedSessionId, this.options.profile, read.signal);
-      if (read.signal.aborted || generation !== this.generation || sessionId !== this.state.sessionId || storedSessionId !== this.state.storedSessionId || detail.id !== storedSessionId) return;
-      this.modelLoadedId = storedSessionId;
+      if (read.signal.aborted || key !== this.modelScopeKey() || detail.id !== storedSessionId) return;
+      this.modelLoadedKey = key;
       this.update({ sessionModel: storedSessionModel(detail.model_config, detail.model) });
     } catch {
       // Model metadata is optional: REST failure must not interrupt the WS conversation.
     } finally {
-      if (this.modelRead === read) this.modelRead = null;
+      if (this.modelRead === read) { this.modelRead = null; this.modelReadKey = null; }
     }
   };
 
@@ -397,12 +405,15 @@ export class WebChatController {
       });
       if (generation !== this.generation) return null;
       if (result.confirm_required) this.update({ modelConfirmation: { provider, model, sessionId: this.state.sessionId!, message: result.confirm_message || result.warning || "Confirm model change" } });
-      if (!result.confirm_required) this.update({
-        modelConfirmation: null,
-        info: { ...this.state.info, provider, model: typeof result.value === "string" ? result.value : model },
-        sessionModel: { provider, model: typeof result.value === "string" ? result.value : model },
-        notice: result.warning || null,
-      });
+      if (!result.confirm_required) {
+        this.modelLoadedKey = this.modelScopeKey();
+        this.update({
+          modelConfirmation: null,
+          info: { ...this.state.info, provider, model: typeof result.value === "string" ? result.value : model },
+          sessionModel: { provider, model: typeof result.value === "string" ? result.value : model },
+          notice: result.warning || null,
+        });
+      }
       return result;
     } catch (error) {
       if (generation === this.generation) this.update({ error: errorMessage(error) });
@@ -538,7 +549,7 @@ export class WebChatController {
     this.manualStop = true;
     this.responders = new WeakSet();
     this.modelRead?.abort(); this.modelRead = null;
-    this.modelLoadedId = null;
+    this.modelReadKey = this.modelLoadedKey = null;
     if (this.publishTimer) clearTimeout(this.publishTimer); this.publishTimer = null;
     this.clearReconnectTimer();
     this.update({ reconnectCountdown: null });

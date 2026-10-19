@@ -4,7 +4,8 @@ import type { ChatMessage, WebChatState } from "./web-chat-state";
 export const CHAT_LIMITS = { bindings: 16, histories: 8, historyBytes: 64 * 1024 ** 2,
   rows: 400, sessionBytes: 8 * 1024 ** 2, previewBytes: 256 * 1024,
   bufferBytes: 8 * 1024 ** 2, requests: 128, requestBytes: 2 * 1024 ** 2,
-  drafts: 4 * 1024 ** 2, images: 100 * 1024 ** 2, closedDrafts: 8 } as const;
+  drafts: 4 * 1024 ** 2, images: 100 * 1024 ** 2, closedDrafts: 8,
+  mediaBytes: 32 * 1024 ** 2, mediaEntries: 64 } as const;
 
 // Protocol payloads and projected rows are immutable. Cache estimates by identity;
 // generating JSON just to measure it would copy every growing body on each token.

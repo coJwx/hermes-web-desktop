@@ -1,0 +1,58 @@
+scope:
+  change: multiplex-web-chat-sessions
+  stage: apply
+  risk: strict
+  date: 2026-10-19
+  fingerprint: "sha256:23b2569c9a00a081cb0ad4761ff5e624cc130b258d0c379029bc9fc526926624"
+  fingerprint_algorithm: "per sorted relative source/test path: path + LF + raw file bytes, concatenated; SHA-256"
+  files:
+    - src/components/web-chat/ConversationTabs.tsx
+    - src/components/web-chat/MessageImages.tsx
+    - src/components/web-chat/ModelCascader.test.tsx
+    - src/components/web-chat/ModelCascader.tsx
+    - src/contexts/WebChatWorkspaceProvider.tsx
+    - src/contexts/web-chat-workspace-context.ts
+    - src/lib/api.ts
+    - src/lib/web-chat-cache.ts
+    - src/lib/web-chat-controller.ts
+    - src/lib/web-chat-media.test.ts
+    - src/lib/web-chat-media.ts
+    - src/lib/web-chat-models.test.ts
+    - src/lib/web-chat-workspace-recovery.ts
+    - src/pages/FilesPage.test.tsx
+    - src/pages/FilesPage.tsx
+    - src/pages/LogsPage.test.tsx
+    - src/pages/LogsPage.tsx
+    - src/pages/WebChatPage.test.tsx
+evidence:
+  - check: "Pre-fix behavior reproduction"
+    result: pass
+    summary: "Five review probes confirmed stale runtime labels, duplicate/obsolete Files reads, obsolete log results, repeated media reads and per-scroll model-menu geometry work. The added model and Files regression tests failed before their fixes."
+  - check: "pnpm exec vitest run src/lib/web-chat src/components/web-chat src/pages/WebChatPage.test.tsx src/pages/FilesPage.test.tsx src/pages/LogsPage.test.tsx src/hooks/useWebChatImages.test.tsx src/lib/gatewayClient.test.ts src/lib/api src/pages/ConfigPage.test.tsx src/pages/ChatPage.test.tsx src/contexts/ProfileProvider.test.tsx"
+    result: pass
+    summary: "23 files and 118 tests passed. Includes real imported JSON-RPC wire fixtures, profile/route lifecycle, media reuse/eviction/cancellation, data-page races and menu interaction."
+  - check: "pnpm exec vitest run src/lib/web-chat-models.test.ts src/lib/web-chat-media.test.ts"
+    result: pass
+    summary: "Final model/media test annotations verified: 2 files, 9 tests passed."
+  - check: "2026-10-19 comment-only polish re-verification (no behavior change)"
+    result: pass
+    summary: "Comment-level clarity polish plus one behavior-identical effect restructure across the 5 touched files; full recorded regression re-run passed (23 files, 118 tests) and typecheck passed. Fingerprint recomputed with the recorded algorithm."
+  - check: "pnpm typecheck"
+    result: pass
+    summary: "No TypeScript diagnostics."
+  - check: "pnpm build"
+    result: pass
+    summary: "Production frontend build succeeded with 2559 transformed modules; output remains in web/dist."
+  - check: "openspec validate multiplex-web-chat-sessions --type change --strict --json --no-interactive"
+    result: pass
+    summary: "One valid change, zero issues."
+  - check: "Authenticated remote, native Tauri, fixed-device CPU/heap/latency measurements"
+    result: not-run
+    summary: "No remote sessions or native/Rust code changed. Request counts and local behavior do not establish measured CPU/heap or remote acceptance."
+invalidates_when:
+  - Any listed source/test file changes.
+  - Profile/workspace lifecycle, media budgets, REST/RPC contracts or shared client dependencies change.
+limitations:
+  - The 32MiB media budget counts encoded strings approximately, not decoded image pixels or response peaks.
+  - Existing remote/native acceptance tasks 1.2 and 8.3 remain incomplete.
+  - JSDOM canvas warnings in existing terminal tests do not validate real browser rendering.

@@ -127,6 +127,8 @@ export async function recoverBinding(binding: SessionBinding, client: GatewayCli
         binding.preview = "";
         binding.settledBaseline = !controller.getSnapshot().busy && !controller.getSnapshot().historyTruncated && !binding.held?.items.some(event => ["message.start", "message.delta", "message.complete"].includes(event.type));
       } else controller.patchState({ loading: false });
+      // A warm replay can retain its runtime ID across a new transport generation.
+      void controller.refreshSessionModel();
       // Replies replay requests before resolving. Mapping is updated before the held delivery.
       deliverHeld();
     } catch (error) {

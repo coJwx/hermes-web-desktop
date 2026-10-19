@@ -182,6 +182,10 @@ export async function fetchJSON<T>(
       credentials: init?.credentials ?? "include",
     });
   } catch (cause) {
+    // A cancelled request must surface its own AbortError, not the friendly
+    // network-failure sentence below: callers that abort gate on signal.aborted
+    // and would otherwise misreport cancellation as a backend outage.
+    if (init?.signal?.aborted) throw cause;
     // fetch() only rejects when the request never got a response: the
     // backend is down, the port is closed, or the network dropped. Tell the
     // user that in words instead of `TypeError: Failed to fetch`.
@@ -551,9 +555,9 @@ export const api = {
         }),
       },
     ),
-  listFiles: (path?: string) => {
+  listFiles: (path?: string, signal?: AbortSignal) => {
     const query = path ? `?path=${encodeURIComponent(path)}` : "";
-    return fetchJSON<ManagedFilesResponse>(`/api/files${query}`);
+    return fetchJSON<ManagedFilesResponse>(`/api/files${query}`, { signal });
   },
   readFile: (path: string) =>
     fetchJSON<ManagedFileReadResponse>(
@@ -586,13 +590,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path, recursive }),
     }),
-  getLogs: (params: { file?: string; lines?: number; level?: string; component?: string }) => {
+  getLogs: (params: { file?: string; lines?: number; level?: string; component?: string }, signal?: AbortSignal) => {
     const qs = new URLSearchParams();
     if (params.file) qs.set("file", params.file);
     if (params.lines) qs.set("lines", String(params.lines));
     if (params.level && params.level !== "ALL") qs.set("level", params.level);
     if (params.component && params.component !== "all") qs.set("component", params.component);
-    return fetchJSON<LogsResponse>(`/api/logs?${qs.toString()}`);
+    return fetchJSON<LogsResponse>(`/api/logs?${qs.toString()}`, { signal });
   },
   getAnalytics: (days: number, profile = getManagementProfile()) =>
     fetchJSON<AnalyticsResponse>(

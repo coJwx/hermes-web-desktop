@@ -67,17 +67,24 @@ export function ModelCascader({ controller, info, sessionId, disabled, switching
       if (!rect) return;
       const width = Math.min(440, window.innerWidth - 24);
       const height = Math.min(288, loading ? 88 : rowCount * 36 + 8, window.innerHeight - 24);
-      setPosition({ width, height,
+      const next = { width, height,
         left: Math.max(12, Math.min(rect.left, window.innerWidth - width - 12)),
         top: Math.max(12, Math.min(rect.top - height - 8, window.innerHeight - height - 12)),
-      });
+      };
+      setPosition(previous => previous.left === next.left && previous.top === next.top && previous.width === next.width && previous.height === next.height ? previous : next);
+    };
+    let frame = 0;
+    const schedule = (event: Event) => {
+      if (frame || (event.target instanceof Node && panel.current?.contains(event.target))) return;
+      frame = requestAnimationFrame(() => { frame = 0; place(); });
     };
     place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", schedule);
+    window.addEventListener("scroll", schedule, true);
     return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", schedule);
+      window.removeEventListener("scroll", schedule, true);
     };
   }, [open, loading, rowCount]);
 

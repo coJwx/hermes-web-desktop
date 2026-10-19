@@ -8,12 +8,14 @@ const mock = vi.hoisted(() => ({
   nextSession: 0,
   setModel: vi.fn(),
   detail: vi.fn(),
+  connectionVersion: 0,
 }));
 
 vi.mock("./api", () => ({ api: { getSessionDetail: mock.detail } }));
 
 vi.mock("./gatewayClient", () => ({
   GatewayClient: class {
+    connectionGeneration = () => mock.connectionVersion;
     states = new Set<(state: string) => void>();
     onState(listener: (state: string) => void) { this.states.add(listener); return () => { this.states.delete(listener); }; }
     onRequest() { return () => {}; }
@@ -35,9 +37,29 @@ vi.mock("./gatewayClient", () => ({
 }));
 
 const createController = () => new WebChatController({ profile: "coding", restore: () => null, remember: () => {} });
-beforeEach(() => { mock.requests.length = 0; mock.nextSession = 0; mock.setModel.mockReset(); mock.detail.mockReset().mockResolvedValue({}); });
+beforeEach(() => { mock.requests.length = 0; mock.nextSession = 0; mock.connectionVersion = 0; mock.setModel.mockReset(); mock.detail.mockReset().mockResolvedValue({}); });
 
 describe("Stored conversation model identity", () => {
+  it("revalidates model identity for a new runtime or connection while reusing unchanged snapshots", async () => {
+    const controller = createController();
+    mock.detail.mockResolvedValue({ id: "stored-1", model_config: { provider: "custom:old", model: "old" } });
+    await controller.start();
+    const snapshot = { session_id: "replacement-runtime", stored_session_id: "stored-1",
+      info: { provider: "custom:new", model: "new" }, messages: [], message_count: 0 };
+    mock.detail.mockResolvedValue({ id: "stored-1", model_config: { provider: "custom:new", model: "new" } });
+    controller.restoreSnapshot(snapshot);
+    await Promise.resolve();
+    expect(controller.getSnapshot().sessionModel).toEqual({ provider: "custom:new", model: "new" });
+    controller.restoreSnapshot(snapshot);
+    await Promise.resolve();
+    expect(mock.detail).toHaveBeenCalledTimes(2);
+    mock.connectionVersion++;
+    mock.detail.mockResolvedValue({ id: "stored-1", model_config: { provider: "custom:latest", model: "latest" } });
+    await controller.refreshSessionModel();
+    expect(controller.getSnapshot().sessionModel).toEqual({ provider: "custom:latest", model: "latest" });
+    controller.stop();
+  });
+
   it("decodes string/object routes and rejects missing or malformed metadata without guessing a provider", () => {
     const identity = { provider: "custom:yyapi-responses", model: "gpt-6.1-sol" };
     expect(storedSessionModel(JSON.stringify({ ...identity, api_mode: "codex_responses", base_url: "https://example.test/v1" }))).toEqual(identity);

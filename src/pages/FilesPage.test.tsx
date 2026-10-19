@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import FilesPage from "./FilesPage";
 import { api, type ManagedFileEntry, type ManagedFileReadResponse } from "@/lib/api";
 import { MAX_FILE_PREVIEW_BYTES } from "@/lib/file-preview";
+import { input, press } from "@/test/editor-test-utils";
 
 vi.mock("@/contexts/usePageHeader", () => ({
   usePageHeader: () => ({ setAfterTitle: () => {}, setEnd: () => {} }),
@@ -49,6 +50,24 @@ afterEach(async () => {
 });
 
 describe("file preview interactions", () => {
+  it("loads a directory once and ignores obsolete navigation results", async () => {
+    const listing = (path: string) => ({ path, entries: [], parent: null, root: null, locked_root: null, can_change_path: true });
+    let finishOld!: (value: ReturnType<typeof listing>) => void;
+    const list = vi.mocked(api.listFiles).mockResolvedValue(listing("/files"));
+    await act(async () => { root.render(<FilesPage />); });
+    expect(list).toHaveBeenCalledTimes(1);
+    list.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+    const path = () => document.querySelector<HTMLInputElement>('input[aria-label="Path"]')!;
+    await input(path(), "/old"); await press("Go");
+    const oldSignal = list.mock.calls.at(-1)![1];
+    list.mockResolvedValue(listing("/new"));
+    await input(path(), "/new"); await press("Go");
+    expect(oldSignal?.aborted).toBe(true);
+    await act(async () => { finishOld(listing("/old")); });
+    expect(path().value).toBe("/new");
+    expect(list).toHaveBeenCalledTimes(3);
+  });
+
   it("opens images and decoded text without downloading; only the download button saves a file", async () => {
     const text = '<script>alert("你好")</script>\nplain text';
     const replies = [response(entries[0], [137, 80, 78, 71]),

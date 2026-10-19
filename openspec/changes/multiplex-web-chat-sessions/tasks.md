@@ -71,3 +71,13 @@
 - [x] 10.5 执行关联DOM/wire回归、编辑器/原生leave相关回归、tsc/build及OpenSpec严格检查；记录证据和真实部署/native未验收范围。
 
 本轮客户端行为证据见evidence/route-retention-verification.md及同名YAML。真实部署/native/固定设备性能未验收，1.2和8.3保持未完成。
+
+## 11. 2026-10-15 缓存与请求审查修复
+
+- [x] 11.1 模型缓存按runtime/连接代际失效，warm replay后校准，warm页签选择不重复读取；覆盖旧响应及已确认选择保护。
+- [x] 11.2 Files单入口加载和latest-response校验；Logs取消旧筛选、无重叠/隐藏轮询及阅读位置保护。
+- [x] 11.3 工作区历史媒体LRU、同源profile/path隔离、并发读租用和取消、容量淘汰及profile退出清理；保持嵌入图片直显。
+- [x] 11.4 模型菜单rAF/位置去重/忽略内部滚动，兼容Window目标并清理待执行帧；保留点击才选择提供商。
+- [x] 11.5 执行相关行为回归、typecheck和build，记录本地证据及真实远端/native/CPU/heap未验证边界。
+
+本轮证据见evidence/cache-request-fixes-verification.yaml；1.2和8.3的远端/native/固定设备验收仍未执行。

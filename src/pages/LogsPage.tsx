@@ -69,25 +69,33 @@ export default function LogsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const requestRef = useRef<AbortController | null>(null);
+  const following = useRef(true);
   const { t } = useI18n();
   const { setAfterTitle, setEnd } = usePageHeader();
 
-  const fetchLogs = useCallback(() => {
+  const fetchLogs = useCallback(async () => {
+    // One read at a time: a poll tick that arrives while a slow read is in
+    // flight is dropped rather than stacked, so filters and auto-refresh can
+    // never overlap.
+    if (requestRef.current) return;
+    const request = new AbortController();
+    requestRef.current = request;
     setLoading(true);
     setError(null);
-    api
-      .getLogs({ file, lines: lineCount, level, component })
-      .then((resp) => {
-        setLines(resp.lines);
-        setTimeout(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          }
-        }, 50);
-      })
-      .catch((err) => setError(errorMessage(err)))
-      .finally(() => setLoading(false));
+    try {
+      const resp = await api.getLogs({ file, lines: lineCount, level, component }, request.signal);
+      if (!request.signal.aborted && requestRef.current === request) setLines(resp.lines);
+    } catch (err) {
+      if (!request.signal.aborted && requestRef.current === request) setError(errorMessage(err));
+    } finally {
+      if (requestRef.current === request && !request.signal.aborted) { requestRef.current = null; setLoading(false); }
+    }
   }, [file, lineCount, level, component]);
+
+  useLayoutEffect(() => {
+    if (following.current && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [lines]);
 
   useLayoutEffect(() => {
     setAfterTitle(
@@ -148,13 +156,18 @@ export default function LogsPage() {
   ]);
 
   useEffect(() => {
-    fetchLogs();
+    following.current = true;
+    setLines([]);
+    void fetchLogs();
+    return () => { requestRef.current?.abort(); requestRef.current = null; };
   }, [fetchLogs]);
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(fetchLogs, 5000);
-    return () => clearInterval(interval);
+    const refreshVisible = () => { if (document.visibilityState !== "hidden") void fetchLogs(); };
+    const interval = setInterval(refreshVisible, 5000);
+    document.addEventListener("visibilitychange", refreshVisible);
+    return () => { clearInterval(interval); document.removeEventListener("visibilitychange", refreshVisible); };
   }, [autoRefresh, fetchLogs]);
 
   return (
@@ -223,6 +236,10 @@ export default function LogsPage() {
 
           <div
             ref={scrollRef}
+            onScroll={(event) => {
+              const box = event.currentTarget;
+              following.current = box.scrollHeight - box.clientHeight - box.scrollTop < 32;
+            }}
             className="max-w-full min-h-[400px] max-h-[calc(100vh-220px)] overflow-auto p-4 font-mono-ui text-xs leading-5 break-words"
           >
             {lines.length === 0 && !loading && (

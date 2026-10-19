@@ -181,6 +181,13 @@ sends detach staged images before retry; lost prompt acknowledgements are never
 automatically resent. History @image refs are rendered through authenticated,
 profile-scoped GET /api/media and remain visible after resume.
 
+History media is shared within the profile workspace, with at most 64 cached
+responses and an estimated 32 MiB of encoded string content. Tab/route returns
+reuse completed reads; simultaneous readers share a request. Unobserved pending
+reads are cancelled, and profile replacement or workspace disposal clears the
+cache. Oversized responses can still be displayed but are not cached. This budget
+does not bound decoded image pixels or the peak size of an incoming API response.
+
 The page does not implement non-image file attachments or a searchable/full
 history picker. Automatic network recovery belongs to the workspace, with one
 retry/backoff schedule and a manual reconnect action.
@@ -198,9 +205,16 @@ The displayed selection prefers `model_config` from the existing profile-scoped
 `GET /api/sessions/{stored_id}` detail endpoint. Serialized JSON and object configs
 are both supported; only the provider/model identity is retained per controller.
 Warm tab and route switches reuse this identity without another detail request.
+Runtime or transport replacement revalidates the identity, including warm replay.
 Missing, malformed or unavailable metadata falls back to the WS/catalog display.
 Successful model changes update the selection immediately and invalidate older
 detail requests. This affects display only, not the backend's actual request route.
+
+Files navigation uses one directory loader with cancellation and latest-response
+checks. Logs apply the same ownership checks when filters change; auto-refresh
+does not overlap requests or poll a hidden document. New log lines follow the
+bottom only while the reader remains near it. Model/tab menus ignore internal
+scrolls and coalesce external repositioning into animation frames.
 
 For development use the existing Vite proxy (pnpm dev) and configure
 HERMES_DASHBOARD_URL for the running Dashboard/Serve backend. Install with

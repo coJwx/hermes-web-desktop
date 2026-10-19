@@ -35,6 +35,7 @@ git remote -v
 | `/web-chat` 界面、页签和标题栏 | `src/pages/WebChatPage.tsx`、`src/components/web-chat/ConversationTabs.tsx`、`src/contexts/PageHeaderProvider.tsx` |
 | 跨路由工作区、草稿、刷新恢复 | `src/contexts/WebChatWorkspaceProvider.tsx`、`src/lib/web-chat-drafts.ts`、`src/lib/web-chat-persistence.ts` |
 | 单 WS、多会话事件、恢复与缓存 | `src/lib/web-chat-workspace.ts`、`web-chat-workspace-recovery.ts`、`web-chat-session-events.ts`、`web-chat-cache.ts` |
+| 历史图片缓存与请求租用 | `src/lib/web-chat-media.ts`、`src/components/web-chat/MessageImages.tsx`；由工作区 provider 持有并清理 |
 | 会话发送、图片、模型、命令 | `src/lib/web-chat-controller.ts` 及 `web-chat-commands.ts`、`web-chat-images.ts` 等专题模块 |
 | REST/WS 认证与 base path | `src/lib/api.ts`、`src/lib/gatewayClient.ts`；共享实现固定在 `vendor/hermes-shared`，上游来源是父级 `apps/shared` |
 | 未保存状态、profile/原生退出 | `src/contexts/UnsavedChangesProvider.tsx`、`src/hooks/useUnsavedChanges.ts`、`src/lib/desktop-leave.ts` |
@@ -55,7 +56,7 @@ git remote -v
 - 未确认 prompt/create 不自动重发，人机请求不自动批准。老服务器单问题 clarify 与新版 questions 批量格式均须兼容；不能只为消除类型错误删除既有协议分支。
 - `sessionStorage` 只保存 scoped stored IDs、顺序、活动项，并兼容旧最近 ID。文字/图片草稿与 scroll/cursor 在内存中；请求 responder、秘密值、完整正文不落浏览器存储。
 - profile 替换/真正退出释放连接和 owned URL；站内导航保留型聊天草稿不提示丢弃。其他编辑器的未保存保护仍有效。服务器长任务不等于阻塞退出的短客户端事务。
-- 预算以 `CHAT_LIMITS` 为准：16 关联、8 历史/估算 64MiB、每会话 400 行/8MiB、文字草稿 4MiB、图片总计 100MiB。估算保留量不是硬 heap 上限；全量 RPC 的下载/解码峰值另计。不要在每条 delta 对整个历史/缓冲做 stringify 计量。
+- 预算以 `CHAT_LIMITS` 为准：16 关联、8 历史/估算 64MiB、每会话 400 行/8MiB、文字草稿 4MiB、图片草稿总计 100MiB；另有历史媒体缓存最多64项/估算32MiB编码字符串。估算保留量不是硬 heap 上限；全量 RPC 的下载/解码峰值及图片像素内存另计。不要在每条 delta 对整个历史/缓冲做 stringify 计量。
 
 所有 REST/WS 继续复用已有 Cookie/token/一次性 ticket 和 base path。浏览器不能随意给 WS 设置 Authorization header。
 Rust 只透明转发现有协议；不能造 snapshot/detach ACK、放宽 TLS，或给远程 Dashboard 授予 Tauri 原生权限。

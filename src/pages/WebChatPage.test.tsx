@@ -51,6 +51,33 @@ afterEach(async () => {
 });
 
 describe("Web Chat over the real JSON-RPC client", () => {
+  it("reuses history media across tabs/routes and releases the cache on profile replacement", async () => {
+    const stored = seedSession("image-history", "Image history");
+    stored.messages[0].text += "\n@image:/images/history.png";
+    webChatPersistence("A").remember(stored.stored_session_id);
+    const fallback = vi.mocked(fetch).getMockImplementation()!;
+    const mediaProfiles: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const parsed = new URL(url, "http://localhost");
+      if (parsed.pathname === "/api/media") {
+        mediaProfiles.push(parsed.searchParams.get("profile")!);
+        return json({ data_url: "data:image/png;base64,aGVsbG8=" });
+      }
+      return fallback(url, init);
+    }));
+    app = await mountEditor(<WebChatPage />, undefined, true); await settle();
+    expect(document.querySelector('img[src="data:image/png;base64,aGVsbG8="]')).not.toBeNull();
+    await press("Open conversation tab"); await press("New chat", tabMenu());
+    await act(async () => { tabButtons().find(tab => tab.dataset.sessionId === stored.stored_session_id)!.click(); });
+    await press("Leave editor");
+    await act(async () => { await app!.router.navigate("/edit"); }); await settle();
+    expect(mediaProfiles).toEqual(["A"]);
+    expect(document.querySelector('img[src="data:image/png;base64,aGVsbG8="]')).not.toBeNull();
+    await press("Switch profile"); await settle();
+    await press("Switch profile"); await settle();
+    expect(mediaProfiles).toEqual(["A", "A"]);
+  });
+
   it("displays the stored model_config identity despite incorrect WS/catalog providers and reuses it on tab switches", async () => {
     const stored = seedSession("model-history", "Stored model conversation");
     Object.assign(stored.info, { provider: "custom:gemini", model: "gpt-6.1-sol" });

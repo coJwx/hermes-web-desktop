@@ -176,3 +176,31 @@ The client SHALL persist a versioned origin/base-path/profile-scoped list of sto
 #### Scenario: Invalid or disabled storage
 - **WHEN** the saved layout has an unsupported version, malformed JSON, invalid IDs or storage access is denied
 - **THEN** layout restoration is skipped safely, legacy scoped last-ID restoration is used when available, and in-memory in-app navigation remains independent of storage
+
+### Requirement: Display caches respect runtime and workspace ownership
+
+Stored model identities SHALL be revalidated when a runtime or transport generation changes, including a warm replay. Unchanged snapshots and warm tab selection SHALL reuse valid metadata. History media SHALL use a workspace-owned profile/path cache bounded to 64 entries and an estimated 32MiB of encoded content, share concurrent reads, and cancel an unfinished read when its final observer leaves. Profile replacement and workspace disposal SHALL clear cached media and prevent old responses from repopulating it. Oversized media MAY be displayed without retention; the cache budget does not bound decoded pixels or response peaks.
+
+#### Scenario: Runtime replacement updates the model label
+- **WHEN** the same stored conversation is restored on a new runtime or transport with a different saved model
+- **THEN** its saved model identity is read again, an old request cannot override it, and ordinary warm selections still avoid detail requests
+
+#### Scenario: Cached media survives route departure
+- **WHEN** a loaded history image is revisited through tab selection or an in-app route round trip
+- **THEN** its existing scoped cache entry is reused without another media request; replacing the profile clears the old cache
+
+#### Scenario: Media observers and limits
+- **WHEN** two views request the same scoped image and one leaves
+- **THEN** the request remains usable by the remaining observer, while the final departure cancels an unfinished request; unused cached entries are evicted by recency when either budget is exceeded
+
+### Requirement: Data page reads and floating menus avoid obsolete work
+
+Files navigation SHALL load once per explicit navigation/refresh and discard cancelled responses. Logs SHALL discard obsolete filter results, avoid overlapping automatic reads, pause new polling while hidden, and preserve a reader's scroll position until they return near the bottom. Floating menus SHALL ignore internal scroll events, coalesce external repositioning using animation frames, and cancel scheduled frames on close.
+
+#### Scenario: A delayed directory or log response
+- **WHEN** an older directory/filter request settles after a newer selection
+- **THEN** it cannot replace the newer content, path, error or loading state
+
+#### Scenario: A log reader scrolls upward during refresh
+- **WHEN** auto-refresh completes while the reader is away from the bottom
+- **THEN** their position is preserved; returning to the bottom enables following subsequent output

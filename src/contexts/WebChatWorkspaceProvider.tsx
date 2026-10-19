@@ -3,6 +3,7 @@ import { useProfileScope } from "./useProfileScope";
 import { WebChatWorkspaceContext, type WebChatWorkspaceOwner } from "./web-chat-workspace-context";
 import { WebChatWorkspace } from "@/lib/web-chat-workspace";
 import { WebChatDrafts } from "@/lib/web-chat-drafts";
+import { WebChatMediaCache } from "@/lib/web-chat-media";
 import { webChatPersistence } from "@/lib/web-chat-persistence";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { CHAT_LIMITS } from "@/lib/web-chat-cache";
@@ -14,14 +15,14 @@ export function WebChatWorkspaceProvider({ active, children }: { active: boolean
   const initialized = active || visited;
   const scope = profile || currentProfile;
   const owner = useMemo<WebChatWorkspaceOwner | null>(() => initialized ? {
-    workspace: new WebChatWorkspace(webChatPersistence(scope)), drafts: new WebChatDrafts(),
+    workspace: new WebChatWorkspace(webChatPersistence(scope)), drafts: new WebChatDrafts(), media: new WebChatMediaCache(),
   } : null, [initialized, scope]);
   useEffect(() => { if (active) setVisited(true); }, [active]);
   useLayoutEffect(() => { owner?.workspace.setViewActive(active); }, [owner, active]);
   useEffect(() => {
     if (!owner) return;
     void owner.workspace.start();
-    return () => { owner.workspace.stop(); owner.drafts.dispose(); };
+    return () => { owner.workspace.stop(); owner.drafts.dispose(); owner.media.clear(); };
   }, [owner]);
   return <WebChatWorkspaceContext.Provider key={scope} value={owner}>
     {owner && <WorkspaceGuard owner={owner} profile={scope} managementProfile={profile} />}
